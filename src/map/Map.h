@@ -6,9 +6,6 @@ using std::vector, std::string, std::ostream;
 // continents and territories ids are 0 based and are modified from the text file.
 
 
-
-
-
 class Continent {
 public:
 	// all properties are excepted to be defined

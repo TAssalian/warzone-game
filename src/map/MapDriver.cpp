@@ -1,19 +1,24 @@
 #include <iostream>
+
+// Raises error for Mac users if #ifdef is not present
+#ifdef _MSC_VER
 #include <crtdbg.h>
-#include "map.h"
+#endif
+
+#include "Map.h"
 using std::string, std::cout;
 
 int main() {
 
 	{
 		vector<string> files = {
-			"artic.map",
-			"bigeurope.map",
-			"brasil.map",
-			"europass.map",
-			"austria.map",
-			"eesti.map",
-			"apple.map"
+			"data/maps/artic.map",
+			"data/maps/bigeurope.map",
+			"data/maps/brasil.map",
+			"data/maps/europass.map",
+			"data/maps/austria.map",
+			"data/maps/eesti.map",
+			"data/maps/apple.map"
 		};
 
 		for (string& filename : files) {
@@ -30,7 +35,9 @@ int main() {
 		}
 	}
 
+#ifdef _MSC_VER
 	_CrtDumpMemoryLeaks();
+#endif
 
 	return 0;
 }
