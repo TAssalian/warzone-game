@@ -8,8 +8,7 @@
 #include "Map.h"
 using std::string, std::cout;
 
-int main() {
-
+int run_map_driver() {
 	{
 		vector<string> files = {
 			"data/maps/artic.map",
