@@ -2,7 +2,7 @@
 #include "Player.h"
 #include "../map/Map.h"
 
-int main() {
+int run_player_driver() {
     std::cout << "Driver starts:" << std::endl;
     Player p1("Leroy Jenkins");
     Player p2("Jane Doe");
