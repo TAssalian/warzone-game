@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="WarzoneGame.vcxproj" />
+  <Project Path="WarzoneGame.vcxproj" Id="54a74c67-b6fc-4ee4-91cb-24c310248008" />
 </Solution>
