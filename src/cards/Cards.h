@@ -15,18 +15,23 @@ public:
 	void play();
 
 	Card(CardType type);
-
+	~Card();
 };
 
 class Deck {
 public:
-	void draw();
+	Card& draw();
 	Deck(std::vector<Card*>& cards);
+	~Deck();
 private:
 	std::vector<Card*>* cards;
 };
 
 class Hand {
+public:
+	Hand(Deck* deck);
+	~Hand();
+	std::vector<Card*>* cards;
 private:
-	std::vector<Card> cards;
+	static int const handSize = 6;
 };
