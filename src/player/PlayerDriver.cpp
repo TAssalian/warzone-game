@@ -1,11 +1,19 @@
 #include <iostream>
 #include "Player.h"
+#include "../cards/Cards.h"
 #include "../map/Map.h"
+#include "../orders/Orders.h"
 
 int run_player_driver() {
     std::cout << "Driver starts:" << std::endl;
-    Player p1("Leroy Jenkins");
-    Player p2("Jane Doe");
+    std::vector<Card*>* cards = new std::vector<Card*>();
+    for (int i = 0; i < 20; i++) {
+        cards->push_back(new Card(static_cast<CardType>(i % 5)));
+    }
+    Deck* deck = new Deck(*cards);
+
+    Player p1("Leroy Jenkins", deck);
+    Player p2("Jane Doe", deck);
 
     Territory* t1 = new Territory();
     Territory* t2 = new Territory();
@@ -37,6 +45,9 @@ int run_player_driver() {
     p1.addTerritory(t2);
     p2.addTerritory(t3);
 
+    std::cout << "p1 name from getName(): " << p1.getName() << std::endl;
+    std::cout << "p1 hand size from getHand(): " << p1.getHand()->cards->size() << std::endl;
+
     std::cout << "Player p1:" << std::endl;
     std::cout << p1 << std::endl;
     std::cout << "Player p2:" << std::endl;
@@ -48,6 +59,12 @@ int run_player_driver() {
     }
 
     std::cout << "Territories that Leroy is defending:" << std::endl;
+    for (Territory* t : p1.toDefend()) {
+        std::cout << " - " << *t << std::endl;
+    }
+
+    p1.removeTerritory(t2);
+    std::cout << "After removeTerritory(USA), Leroy is defending:" << std::endl;
     for (Territory* t : p1.toDefend()) {
         std::cout << " - " << *t << std::endl;
     }
@@ -69,10 +86,19 @@ int run_player_driver() {
     std::cout << "Player p1:" << std::endl;
     std::cout << p1 << std::endl;
     std::cout << "Player p2:" << std::endl;
-    std::cout << p3 << std::endl;
+    std::cout << p2 << std::endl;
 
-    // Include IssueOrder() verification
 
-    std::cout << "Driver ends:" << std::endl;
+    std::cout << "Orders before issueOrder(): " << *(p1.getOrders()) << std::endl;
+    p1.issueOrder();
+    p1.issueOrder();
+    std::cout << "Orders after issueOrder() twice: " << *(p1.getOrders()) << std::endl;
+
+    delete deck;
+    delete t1;
+    delete t2;
+    delete t3;
+
+    std::cout << "Driver ends." << std::endl;
     return 0;
 }

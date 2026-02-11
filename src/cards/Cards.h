@@ -30,6 +30,8 @@ private:
 class Hand {
 public:
 	Hand(Deck* deck);
+	Hand(const Hand& other);
+	Hand& operator=(const Hand& other);
 	~Hand();
 	std::vector<Card*>* cards;
 private:

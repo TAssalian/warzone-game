@@ -5,23 +5,23 @@
 #include <iostream>
 
 class Territory;
+class Deck;
+class Hand;
 class OrderList;
-//class Hand;
 
 class Player {
 private:
-    const int* id;
+    int* id;
     static int* nextId;
 
     std::string* name;
     std::vector<Territory*>* territories;
+    Deck* deck;
+    Hand* hand;
     OrderList* orders;
-    //Hand* hand;
 
 public:
-    Player();
-    Player(std::string name);
-
+    Player(std::string name, Deck* deck);
     Player(const Player& other);
     Player& operator=(const Player& other);
     ~Player();
@@ -30,7 +30,7 @@ public:
 
     std::string getName() const;
     const std::vector<Territory*>& getTerritories() const;
-    //Hand* getHand() const;
+    Hand* getHand() const;
     OrderList* getOrders() const;
 
     void addTerritory(Territory* territory);
@@ -39,7 +39,6 @@ public:
     std::vector<Territory*> toDefend() const;
     std::vector<Territory*> toAttack() const;
 
-    //void issueOrder();
+    void issueOrder();
 
 };
-

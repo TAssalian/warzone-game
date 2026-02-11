@@ -1,34 +1,44 @@
+#include <algorithm>
+
 #include "Player.h"
+#include "../cards/Cards.h"
+#include "../map/Map.h"
 #include "../orders/Orders.h"
 
+
 int* Player::nextId = new int(0);
-Player::Player()
-    : id(new int((*nextId)++)),
-      name(new std::string("Unknown")),
-      territories(new std::vector<Territory*>()),
-      orders(new OrderList()) {}
-      
-Player::Player(std::string name)
+
+
+Player::Player(std::string name, Deck* deck)
     : id(new int((*nextId)++)),
       name(new std::string(name)),
       territories(new std::vector<Territory*>()),
-      orders(new OrderList)
-    {}
+	  deck(deck),
+	  hand(new Hand(deck)),
+      orders(new OrderList()){}
 
 Player::Player(const Player& other)
     : id(new int(*other.id)),
       name(new std::string(*other.name)),
-      territories(new std::vector<Territory*>(*other.territories)) {}
+      territories(new std::vector<Territory*>(*other.territories)),
+	  deck(other.deck),
+      hand(new Hand(*other.hand)),
+	  orders(new OrderList(*other.orders)) {}
 
 Player& Player::operator=(const Player& other) {
     if (this != &other) {
         delete id;
         delete name;
         delete territories;
+		delete hand;
+		delete orders;
 
         id = new int(*other.id);
         name = new std::string(*other.name);
         territories = new std::vector<Territory*>(*other.territories);
+		deck = other.deck;
+        hand = new Hand(*other.hand);
+		orders = new OrderList(*other.orders);
     }
     return *this;
 }
@@ -37,6 +47,8 @@ Player::~Player() {
     delete id;
     delete name;
     delete territories;
+    delete hand;
+	delete orders;
 }
 
 std::ostream& operator<<(std::ostream& os, const Player& p) {
@@ -56,6 +68,10 @@ OrderList* Player::getOrders() const {
 
 const std::vector<Territory*>& Player::getTerritories() const {
     return *territories;
+}
+
+Hand* Player::getHand() const {
+    return hand;
 }
 
 void Player::addTerritory(Territory* territory) {
@@ -78,4 +94,9 @@ std::vector<Territory*> Player::toDefend() const {
 // Just return no territories
 std::vector<Territory*> Player::toAttack() const {
     return std::vector<Territory*>();
+}
+
+void Player::issueOrder() {
+	Order* order = new Order("PlaceholderOrder", this);
+	orders->addOrder(order);
 }
