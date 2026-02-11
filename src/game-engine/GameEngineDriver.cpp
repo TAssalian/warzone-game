@@ -6,5 +6,6 @@ int main() {
 	//run_map_driver();
 	//run_player_driver();
 	run_cards_driver();
+	run_orders_driver();
 	return 0;
 }

@@ -36,10 +36,13 @@ public:
 	vector<int*>* neighborsIds;
 
 	Territory() = default;
-	Territory(Territory& other);
+	Territory(int id, string name, int continentId);
+	Territory(const Territory& other);
 	~Territory();
 	void swap(Territory& other);
-	Territory& operator=(Territory other);
+	Territory& operator=(const Territory other);
+
+	string* getName() const;
 
 	friend ostream& operator<<(ostream& os, const Territory& territory);
 };

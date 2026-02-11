@@ -64,6 +64,7 @@ Map& Map::operator=(Map other) {
 	return *this;
 }
 
+
 std::ostream& operator<<(std::ostream& os, const Map& m) {
 	os << "Map Details: { \n";
 
@@ -171,7 +172,16 @@ std::ostream& operator<<(std::ostream& os, const Continent& c) {
 	return os;
 }
 
-Territory::Territory(Territory& other) {
+Territory::Territory(int id, string name, int continentId) {
+	this->id = new int(id);
+	this->name = new string(name);
+	this->continentId = new int(continentId);
+	this->neighborsIds = new vector<int*>();
+	this->playerId = new int(-1);
+	this->armiesNum = new int(0);
+}
+
+Territory::Territory(const Territory& other) {
 	id = new int(*other.id);
 	name = new string(*other.name);
 	continentId = new int(*other.continentId);
@@ -210,6 +220,10 @@ void Territory::swap(Territory& other) {
 Territory& Territory::operator=(Territory territory) {
 	this->swap(territory);
 	return *this;
+}
+
+string* Territory::getName() const {
+	return name;
 }
 
 std::ostream& operator<<(std::ostream& os, const Territory& t) {

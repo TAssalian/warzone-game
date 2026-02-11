@@ -5,7 +5,7 @@
 #include <iostream>
 
 class Territory;
-//class OrdersList;
+class OrderList;
 //class Hand;
 
 class Player {
@@ -15,7 +15,7 @@ private:
 
     std::string* name;
     std::vector<Territory*>* territories;
-    //OrdersList* orders;
+    OrderList* orders;
     //Hand* hand;
 
 public:
@@ -31,7 +31,7 @@ public:
     std::string getName() const;
     const std::vector<Territory*>& getTerritories() const;
     //Hand* getHand() const;
-    //OrdersList* getOrders() const;
+    OrderList* getOrders() const;
 
     void addTerritory(Territory* territory);
     void removeTerritory(Territory* territory);
