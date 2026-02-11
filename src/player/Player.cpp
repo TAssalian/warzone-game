@@ -1,16 +1,19 @@
 #include "Player.h"
+#include "../orders/Orders.h"
 
 int* Player::nextId = new int(0);
-
 Player::Player()
     : id(new int((*nextId)++)),
       name(new std::string("Unknown")),
-      territories(new std::vector<Territory*>()) {}
-
+      territories(new std::vector<Territory*>()),
+      orders(new OrderList()) {}
+      
 Player::Player(std::string name)
     : id(new int((*nextId)++)),
       name(new std::string(name)),
-      territories(new std::vector<Territory*>()) {}
+      territories(new std::vector<Territory*>()),
+      orders(new OrderList)
+    {}
 
 Player::Player(const Player& other)
     : id(new int(*other.id)),
@@ -45,6 +48,10 @@ std::ostream& operator<<(std::ostream& os, const Player& p) {
 
 std::string Player::getName() const {
     return *name;
+}
+
+OrderList* Player::getOrders() const {
+    return orders;
 }
 
 const std::vector<Territory*>& Player::getTerritories() const {
