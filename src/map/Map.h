@@ -16,7 +16,7 @@ public:
 	vector<int*>* territoriesIds;
 
 	Continent() = default;
-	Continent(Continent& other);
+	Continent(const Continent& other);
 	~Continent();
 	void swap(Continent& other);
 	Continent& operator=(Continent other);
@@ -67,7 +67,7 @@ public:
 	Err* validateErr; // error type after validating - default: None
 
 	Map() = default;
-	Map(Map& other);
+	Map(const Map& other);
 	~Map();
 	void swap(Map& other);
 	Map& operator=(Map other);
@@ -134,10 +134,11 @@ public:
 	//
 	//
 
-	MapLoader(MapLoader& other);
+	MapLoader(const MapLoader& other);
 	~MapLoader();
 	void swap(MapLoader& other);
 	MapLoader& operator=(MapLoader other);
 
 	friend ostream& operator<<(ostream& os, const MapLoader& mapLoader);
+
 };
