@@ -7,7 +7,7 @@
 #include <sstream>
 using std::vector, std::string, std::ifstream, std::stringstream, std::getline, std::stack;
 
-Map::Map(Map& other) {
+Map::Map(const Map& other) {
 	continents = new vector<Continent*>();
 	for (auto continent : *other.continents) {
 		continents->push_back(new Continent{ *continent });
@@ -122,7 +122,7 @@ std::ostream& operator<<(std::ostream& os, const Map& m) {
 	return os;
 }
 
-Continent::Continent(Continent& other) {
+Continent::Continent(const Continent& other) {
 	id = new int(*other.id);
 	name = new string(*other.name);
 	bonusValue = new int(*other.bonusValue);
@@ -544,7 +544,7 @@ void Map::validate() {
 	delete[] visited;
 }
 
-MapLoader::MapLoader(MapLoader& other) {
+MapLoader::MapLoader(const MapLoader& other) {
 	filename = new string(*other.filename);
 	map = other.map == nullptr ? nullptr : new Map(*other.map);
 	isFormatValid = new bool(*other.isFormatValid);
@@ -678,4 +678,5 @@ void MapLoader::setTerritoryArmiesNum(int territoryId, int armiesNum) {
 
 vector<int*>* MapLoader::getTerritoryNeighborsIds(int territoryId) {
 	return (*map->territories)[territoryId]->neighborsIds;
+
 } 
