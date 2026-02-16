@@ -1,39 +1,54 @@
 #pragma once
+#include <iostream>
 #include <vector>
 
-enum CardType {
-	Bomb,
-	Reinforcement,
-	Blockade,
-	Airlift,
-	Diplomacy
-};
+enum CardType { Bomb, Reinforcement, Blockade, Airlift, Diplomacy };
 
 class Card {
 public:
-	CardType type;
-	void play();
+  CardType type;
 
-	Card(CardType type);
-	~Card();
+  Card(CardType type);
+  Card(const Card &other);
+  Card &operator=(const Card &other);
+  ~Card();
+
+  void play();
+
+  friend std::ostream &operator<<(std::ostream &os, const Card &card);
 };
 
 class Deck {
 public:
-	Card& draw();
-	Deck(std::vector<Card*>& cards);
-	~Deck();
+  Card &draw();
+  void returnCard(Card *card);
+  int size() const;
+
+  Deck(std::vector<Card *> &cards);
+  Deck(const Deck &other);
+  Deck &operator=(const Deck &other);
+  ~Deck();
+
+  friend std::ostream &operator<<(std::ostream &os, const Deck &deck);
+
 private:
-	std::vector<Card*>* cards;
+  std::vector<Card *> *cards;
 };
 
 class Hand {
 public:
-	Hand(Deck* deck);
-	Hand(const Hand& other);
-	Hand& operator=(const Hand& other);
-	~Hand();
-	std::vector<Card*>* cards;
+  Hand(Deck *deck);
+  Hand(const Hand &other);
+  Hand &operator=(const Hand &other);
+  ~Hand();
+
+  std::vector<Card *> *cards;
+
+  void playCard(int index, Deck &deck);
+  int size() const;
+
+  friend std::ostream &operator<<(std::ostream &os, const Hand &hand);
+
 private:
-	static int const handSize = 6;
+  static int const handSize = 6;
 };
