@@ -63,5 +63,8 @@ public:
   // next valid command for current state
   string getNextValidCommand() const;
 
+  // validate and apply state transition in one call
+  bool transition(const std::string &cmd);
+
   friend ostream &operator<<(ostream &os, const GameEngine &gameEngine);
 };
