@@ -139,6 +139,19 @@ string GameEngine::getNextValidCommand() const {
   }
 }
 
+/**
+ * Validates the command and, if valid, applies the state transition.
+ * Returns true on success, false if the command was invalid.
+ */
+bool GameEngine::transition(const string &cmd) {
+  string mutableCmd = cmd;
+  if (!validateCommand(mutableCmd)) {
+    return false;
+  }
+  setCurrentState(mutableCmd);
+  return true;
+}
+
 // overloading << to print the current state
 ostream &operator<<(ostream &os, const GameEngine &gameEngine) {
   os << "Current state: " << gameEngine.getCurrentStateName();
