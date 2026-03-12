@@ -1,8 +1,5 @@
 #pragma once
 
-// Forward-declare the driver entry point so it can be a friend of CommandProcessor.
-int run_command_processing_driver(int argc, char *argv[]);
-
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -22,60 +19,46 @@ public:
   ~Command();
 
   std::string getCommand() const;
-  /// Stores the effect string for this command
   void saveEffect(const std::string &eff);
-  /// Returns the effect string
   std::string getEffect() const;
 
   friend std::ostream &operator<<(std::ostream &os, const Command &cmd);
 };
 
-/**
- * CommandProcessor
- * Reads commands from the console (stdin), stores them internally, and
- * validates each command against the current GameEngine state.
- */
+
+// Reads commands from the console, stores them, and validates each command against the current GameEngine state.
 class CommandProcessor {
 private:
-  std::vector<Command *> *commands; // Owns Command objects
   GameEngine *engine;               // Pointer to the game engine
-  int currentIndex;                 // Index of the next command to return via getCommand()
-
-protected:
   virtual Command *readCommand();
-
   void saveCommand(Command *cmd);
 
 public:
+  std::vector<Command *> commandList; // Owns Command objects
+
   explicit CommandProcessor(GameEngine *ge);
   CommandProcessor(const CommandProcessor &other);
   CommandProcessor &operator=(const CommandProcessor &other);
   virtual ~CommandProcessor();
 
-  /// Reads the next command, validates it, stores it, and returns a pointer.
+  // Public entry point that reads, stores, validates, and returns the next command
   Command *getCommand();
 
-  /// Validates whether cmd is legal in the current game state.
-  /// If invalid, saves an error message as the command's effect.
+  // Validates whether cmd is legal in the current game state.
+  // If invalid, saves an error message as the command's effect.
   bool validate(Command *cmd);
 
   friend std::ostream &operator<<(std::ostream &os, const CommandProcessor &cp);
-
-  // Grant the driver function access to the protected readCommand().
-  friend int run_command_processing_driver(int argc, char *argv[]);
 };
 
-/**
- * FileLineReader
- * Helper class used by FileCommandProcessorAdapater that opens a text file and returns one line at a time.
- */
+// Helper class used by FileCommandProcessorAdapater that opens a text file and returns one non-empty line at a time
 class FileLineReader {
 private:
   std::string *filename;
   std::ifstream *fileStream;
 
 public:
-  /// Opens the file at the file path
+  // Opens the file at the file path
   FileLineReader(const std::string &fn);
   FileLineReader(const FileLineReader &other);
   FileLineReader &operator=(const FileLineReader &other);
@@ -83,19 +66,14 @@ public:
 
   std::string readLineFromFile();
 
-  /// Returns true if the end of file has been reached
+  // Returns true if the end of file has been reached
   bool eof() const;
 
   friend std::ostream &operator<<(std::ostream &os, const FileLineReader &flr);
 };
 
-// ---------------------------------------------------------------------------
-
-/**
- * FileCommandProcessorAdapter
- * Re-uses CommandProcessor's interface but gets commands from a text file instead of the console.
- * All methods are the same as CommandProcessor except for readCommand() which is overridden to read from a file.
- */
+// Gets commands from a text file instead of the console
+// All methods are the same as CommandProcessor to validate and store, except for readCommand() which is overridden to read from a file instead of the console
 class FileCommandProcessorAdapter : public CommandProcessor {
 private:
   FileLineReader *flr;

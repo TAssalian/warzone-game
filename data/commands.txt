@@ -1,13 +1,20 @@
-load-map
-load-map
-validate-map
-add-player
-add-player
-assign-countries
-invalidcommand
-issue-order
-end-issue-orders
-exec-order
+validatemap
+loadmap
+loadmap world.map
+addplayer Alice
+validatemap
+gamestart
+addplayer Alice
+addplayer Bob
+gamestart
+execorder
+issueorders
 win
-play
-end
+issueorder
+issueorder
+endissueorders
+loadmap canada.map
+execorder
+execorder
+win
+quit

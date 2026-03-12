@@ -12,15 +12,11 @@ int run_game_engine_driver() {
 
   cout << endl;
   cout << "Available commands per state:" << endl;
-  cout << "  Start             -> load-map(1)" << endl;
-  cout << "  Map Loaded        -> load-map(1) | validate-map(2)" << endl;
-  cout << "  Map Validated     -> add-player(3)" << endl;
-  cout << "  Players Added     -> add-player(3) | assign-countries(4)" << endl;
-  cout << "  Assign Reinforce  -> issue-order(5)" << endl;
-  cout << "  Issue Orders      -> issue-order(5) | end-issue-orders(6)" << endl;
-  cout << "  Execute Orders    -> exec-order(7) | end-exec-orders(8) | win(9)"
-       << endl;
-  cout << "  Win               -> play(10) | end(11)" << endl;
+  cout << "  Start             -> loadmap <mapfile>" << endl;
+  cout << "  Map Loaded        -> loadmap <mapfile> | validatemap" << endl;
+  cout << "  Map Validated     -> addplayer <playername>" << endl;
+  cout << "  Players Added     -> addplayer <playername> | gamestart" << endl;
+  cout << "  Win               -> replay | quit" << endl;
   cout << endl;
 
   string command, previousCommand;
@@ -30,7 +26,7 @@ int run_game_engine_driver() {
     // creating gameEngine and printing current state
     cout << *gameEngine << endl;
     cout << "next valid command:" << gameEngine->getNextValidCommand() << endl;
-    cout << "Please enter transition name or number" << endl;
+    cout << "Please enter a command" << endl;
     // ask user for next transition
     getline(cin, command);
 
