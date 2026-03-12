@@ -36,20 +36,16 @@ Command::~Command() {
   delete effect;
 }
 
-/**
- * Returns the command text.
- */
+// Returns command stored in Command object
 string Command::getCommand() const { return *commandText; }
 
-/**
- * Saves the effect string for this command (e.g., resulting state or error).
- */
+string Command::getEffect() const { return *effect; }
+
+// Saves the effect string for this Command
 void Command::saveEffect(const string &eff) {
   delete effect;
   effect = new string(eff);
 }
-
-string Command::getEffect() const { return *effect; }
 
 ostream &operator<<(ostream &os, const Command &cmd) {
   os << "Command: \"" << *cmd.commandText << "\"" << " | Effect: \"" << *cmd.effect << "\"";
@@ -58,79 +54,67 @@ ostream &operator<<(ostream &os, const Command &cmd) {
 
 
 CommandProcessor::CommandProcessor(GameEngine *ge)
-    : commands(new vector<Command *>()), engine(ge), currentIndex(0) {}
+    : engine(ge) {}
 
 CommandProcessor::CommandProcessor(const CommandProcessor &other)
-    : commands(new vector<Command *>()), engine(other.engine),
-      currentIndex(other.currentIndex) {
-  for (Command *c : *other.commands) {
-    commands->push_back(new Command(*c));
+    : engine(other.engine) {
+  for (Command *c : other.commandList) {
+    commandList.push_back(new Command(*c));
   }
 }
 
 CommandProcessor &CommandProcessor::operator=(const CommandProcessor &other) {
   if (this != &other) {
-    for (Command *c : *commands) {
+    for (Command *c : commandList) {
       delete c;
     }
-    delete commands;
-
-    commands = new vector<Command *>();
+    commandList.clear();
     engine = other.engine;
-    currentIndex = other.currentIndex;
-    for (Command *c : *other.commands) {
-      commands->push_back(new Command(*c));
+    for (Command *c : other.commandList) {
+      commandList.push_back(new Command(*c));
     }
   }
   return *this;
 }
 
 CommandProcessor::~CommandProcessor() {
-  for (Command *c : *commands) {
+  for (Command *c : commandList) {
     delete c;
   }
-  delete commands;
-  // engine is non-owning so do not delete
 }
 
+// Get the command from the terminal in console mode
 Command *CommandProcessor::readCommand() {
   cout << "[CommandProcessor] Enter command: ";
   string line;
   if (!std::getline(std::cin, line)) {
     return nullptr; // EOF or input failure
   }
-  Command *cmd = new Command(line);
-  saveCommand(cmd);
-  return cmd;
+  return new Command(line);
 }
 
 void CommandProcessor::saveCommand(Command *cmd) {
-  commands->push_back(cmd);
+  commandList.push_back(cmd);
 }
 
-/**
- * Public getter
- * Returns the next Command object from the stored commands,
- * advancing the currentIndex cursor. All previous commands remain in the
- * collection for logging/tracking purposes.
- */
 Command *CommandProcessor::getCommand() {
-  if (currentIndex >= static_cast<int>(commands->size())) {
-    return nullptr; // no more stored commands
+  Command *cmd = readCommand();
+  if (cmd == nullptr) {
+    return nullptr;
   }
-  return (*commands)[currentIndex++];
+
+  saveCommand(cmd);
+  validate(cmd);
+  return cmd;
 }
 
-/**
- * Validates whether cmd is legal in the current game state.
- * If the command is invalid, saves a corresponding error message as the command's effect.
- */
+// Validates whether Command object is legal in the current game state
+// If the command is invalid, saves a corresponding error message as the command's effect
 bool CommandProcessor::validate(Command *cmd) {
   string text = cmd->getCommand();
   string stateName = engine->getCurrentStateName();
 
-  if (engine->validateCommand(text)) {
-    cmd->saveEffect("Command \"" + text + "\" is valid in state " + stateName + ".");
+  if (engine->validateCommand(text)) { //
     return true;
   } else {
     cmd->saveEffect("ERROR: \"" + text + "\" is not a valid command in state " + stateName + ".");
@@ -140,7 +124,7 @@ bool CommandProcessor::validate(Command *cmd) {
 
 ostream &operator<<(ostream &os, const CommandProcessor &cp) {
   os << "CommandProcessor [\n";
-  for (const Command *c : *cp.commands) {
+  for (const Command *c : cp.commandList) {
     os << "  " << *c << "\n";
   }
   os << "]";
@@ -178,9 +162,7 @@ FileLineReader::~FileLineReader() {
   delete filename;
 }
 
-/**
- * Reads next non-empty line from the file.
- */
+// Reads next non-empty line from commands/game file
 string FileLineReader::readLineFromFile() {
   string line;
   while (std::getline(*fileStream, line)) {
@@ -200,10 +182,7 @@ ostream &operator<<(ostream &os, const FileLineReader &flr) {
 }
 
 
-/**
- * Constructs the adapter with a GameEngine and a path to the command file.
- * Opens a FileLineReader for the given file.
- */
+// Constructs the adapter with a GameEngine and a FileLineReader for the file from a path
 FileCommandProcessorAdapter::FileCommandProcessorAdapter(GameEngine *ge, const string &filename)
     : CommandProcessor(ge), flr(new FileLineReader(filename)) {}
 
@@ -223,10 +202,9 @@ FileCommandProcessorAdapter::operator=(const FileCommandProcessorAdapter &other)
 
 FileCommandProcessorAdapter::~FileCommandProcessorAdapter() { delete flr; }
 
-/**
- * Overrides readCommand() to read from the file via FileLineReader instead of the console 
- * Adapter pattern: adapts FileLineReader interface to the CommandProcessor readCommand() interface).
- */
+// Overrides readCommand() to read from the file instead of the console
+// Adapter design pattern: adapts FileLineReader interface to the CommandProcessor readCommand() interface
+// The only difference between this and normal CommandProcessor class. After each returning a Command object in their own way, validation and storage is all done the same using CommandProcessor methods.
 Command *FileCommandProcessorAdapter::readCommand() {
   if (flr->eof()) {
     return nullptr;
@@ -237,9 +215,7 @@ Command *FileCommandProcessorAdapter::readCommand() {
   }
   cout << "[FileCommandProcessorAdapter] Read command from file: \"" << line
        << "\"" << endl;
-  Command *cmd = new Command(line);
-  saveCommand(cmd);
-  return cmd;
+  return new Command(line);
 }
 
 ostream &operator<<(ostream &os, const FileCommandProcessorAdapter &fcpa) {

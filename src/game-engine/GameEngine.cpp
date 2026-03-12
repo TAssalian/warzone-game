@@ -1,32 +1,63 @@
 #include "GameEngine.h"
+#include "CommandProcessing.h"
+
+#include <sstream>
+#include <vector>
 
 using std::string;
 
+namespace {
+
+string extractCommandName(const string &input) {
+  std::istringstream stream(input);
+  string token;
+  stream >> token;
+  return token;
+}
+
+std::vector<string> extractCommandTokens(const string &input) {
+  std::istringstream stream(input);
+  std::vector<string> tokens;
+  string token;
+
+  while (stream >> token) {
+    tokens.push_back(token);
+  }
+
+  return tokens;
+}
+
+bool isCommand(const string &input, const string &name) {
+  return extractCommandName(input) == name;
+}
+
+bool hasRequiredParameter(const string &input) {
+  return extractCommandTokens(input).size() >= 2;
+}
+
+} // namespace
+
 // mapping of gameStates
 GameState stringToGameState(const std::string &str) {
-  if (str == "load-map" || str == "1")
+  if (isCommand(str, "loadmap"))
     return MAP_LOADED;
-  if (str == "validate-map" || str == "2")
+  if (isCommand(str, "validatemap"))
     return MAP_VALIDATED;
-  if (str == "add-player" || str == "3")
+  if (isCommand(str, "addplayer"))
     return PLAYERS_ADDED;
-  if (str == "assign-countries" || str == "4")
+  if (isCommand(str, "gamestart"))
     return ASSIGN_REINFORCEMENT;
-
-  if (str == "issue-order" || str == "5")
+  if (isCommand(str, "issueorders"))
     return ISSUE_ORDERS;
-  if (str == "end-issue-orders" || str == "6")
+  if (isCommand(str, "endissueorders"))
     return EXECUTE_ORDERS;
-  if (str == "exec-order" || str == "7")
+  if (isCommand(str, "execorder"))
     return EXECUTE_ORDERS;
-  if (str == "end-exec-orders" || str == "8")
-    return ASSIGN_REINFORCEMENT;
-
-  if (str == "win" || str == "9")
+  if (isCommand(str, "win"))
     return WIN;
-  if (str == "play" || str == "10")
+  if (isCommand(str, "replay"))
     return START;
-  if (str == "end" || str == "11")
+  if (isCommand(str, "quit"))
     return END;
 
   return START;
@@ -87,27 +118,23 @@ bool GameEngine::validateCommand(string &command) {
 
   switch (state) {
   case START:
-    return command == "load-map" || command == "1";
+    return isCommand(command, "loadmap") && hasRequiredParameter(command);
   case MAP_LOADED:
-    return command == "load-map" || command == "1" ||
-           command == "validate-map" || command == "2";
+    return (isCommand(command, "loadmap") && hasRequiredParameter(command)) ||
+           isCommand(command, "validatemap");
   case MAP_VALIDATED:
-    return command == "add-player" || command == "3";
+    return isCommand(command, "addplayer") && hasRequiredParameter(command);
   case PLAYERS_ADDED:
-    return command == "add-player" || command == "3" ||
-           command == "assign-countries" || command == "4";
+    return (isCommand(command, "addplayer") && hasRequiredParameter(command)) ||
+           isCommand(command, "gamestart");
   case ASSIGN_REINFORCEMENT:
-    return command == "issue-order" || command == "5";
+    return isCommand(command, "issueorders");
   case ISSUE_ORDERS:
-    return command == "issue-order" || command == "5" ||
-           command == "end-issue-orders" || command == "6";
+    return isCommand(command, "issueorder") || isCommand(command, "endissueorders");
   case EXECUTE_ORDERS:
-    return command == "exec-order" || command == "7" ||
-           command == "end-exec-orders" || command == "8" || command == "win" ||
-           command == "9";
+    return isCommand(command, "execorder") || isCommand(command, "win");
   case WIN:
-    return command == "play" || command == "10" || command == "end" ||
-           command == "11";
+    return isCommand(command, "replay") || isCommand(command, "quit");
   default:
     return false;
   }
@@ -119,21 +146,21 @@ string GameEngine::getNextValidCommand() const {
 
   switch (state) {
   case START:
-    return "Start -> load-map(1)";
+    return "Start -> loadmap <mapfile>";
   case MAP_LOADED:
-    return "Map Loaded -> load-map(1) | validate-map(2)";
+    return "Map Loaded -> loadmap <mapfile> | validatemap";
   case MAP_VALIDATED:
-    return "Map Validated -> add-player(3)";
+    return "Map Validated -> addplayer <playername>";
   case PLAYERS_ADDED:
-    return "Players Added -> add-player(3) | assign-countries(4)";
+    return "Players Added -> addplayer <playername> | gamestart";
   case ASSIGN_REINFORCEMENT:
-    return "Assign Reinforce -> issue-order(5)";
+    return "Assign Reinforcement -> issueorders";
   case ISSUE_ORDERS:
-    return "Issue Orders -> issue-order(5) | end-issue-orders(6)";
+    return "Issue Orders -> issueorder | endissueorders";
   case EXECUTE_ORDERS:
-    return "Execute Orders -> exec-order(7) | end-exec-orders(8) | win(9)";
+    return "Execute Orders -> execorder | win";
   case WIN:
-    return "Win -> play(10) | end(11)";
+    return "Win -> replay | quit";
   default:
     return "";
   }
@@ -149,6 +176,78 @@ bool GameEngine::transition(const string &cmd) {
     return false;
   }
   setCurrentState(mutableCmd);
+  return true;
+}
+
+bool GameEngine::transition(Command *cmd) {
+  if (cmd == nullptr) {
+    return false;
+  }
+
+  string text = cmd->getCommand();
+  string mutableCmd = text;
+  if (!validateCommand(mutableCmd)) {
+    if (cmd->getEffect().empty()) {
+      cmd->saveEffect("ERROR: \"" + text + "\" is not a valid command in state " +
+                      getCurrentStateName() + ".");
+    }
+    return false;
+  }
+
+  const string previousState = getCurrentStateName();
+  const string commandName = extractCommandName(text);
+
+  if (commandName == "gamestart") {
+    setCurrentState(text);
+    cmd->saveEffect("game started; entering reinforcement phase");
+    return true;
+  }
+
+  if (commandName == "issueorders") {
+    setCurrentState(text);
+    cmd->saveEffect("reinforcements assigned; entering issue orders phase");
+    return true;
+  }
+
+  if (commandName == "issueorder") {
+    cmd->saveEffect("order issued");
+    return true;
+  }
+
+  if (commandName == "endissueorders") {
+    setCurrentState(text);
+    cmd->saveEffect("all orders issued; entering execute orders phase");
+    return true;
+  }
+
+  if (commandName == "execorder") {
+    setCurrentState(text);
+    cmd->saveEffect("order executed");
+    return true;
+  }
+
+  if (commandName == "win") {
+    setCurrentState(text);
+    cmd->saveEffect("game won");
+    return true;
+  }
+
+  if (commandName == "replay") {
+    setCurrentState(text);
+    cmd->saveEffect("replay selected");
+    return true;
+  }
+
+  if (commandName == "quit") {
+    setCurrentState(text);
+    cmd->saveEffect("quit selected");
+    return true;
+  }
+
+  // loadmap, validatemap and addplayer done here because state stays the same
+  setCurrentState(text);
+  cmd->saveEffect("state changed from " + previousState + " to " +
+                  getCurrentStateName());
   return true;
 }
 

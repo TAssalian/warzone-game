@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+class Command;
+
 using std::string, std::ostream;
 
 enum GameState {
@@ -65,6 +67,7 @@ public:
 
   // validate and apply state transition in one call
   bool transition(const std::string &cmd);
+  bool transition(Command *cmd);
 
   friend ostream &operator<<(ostream &os, const GameEngine &gameEngine);
 };

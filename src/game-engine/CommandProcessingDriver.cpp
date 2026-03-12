@@ -8,19 +8,13 @@ using std::cout;
 using std::endl;
 using std::string;
 
-// To separate sections
 static void printBanner(const string &title) {
   cout << "\n--- " << title << " ---" << endl;
 }
 
-// Driver entry point is declared as friend of CommandProcessor so it can call
-// the protected readCommand() directly since we do not want to expose this method to other classes
-
-/**
- * Parses commands and runs the demo:
- *   -console            : reads commands from console
- *   -file <filename>    : reads commands from text file
- */
+//Parses commands and runs the demo:
+//-console            : reads commands from console
+//-file <filename>    : reads commands from text file
 int run_command_processing_driver(int argc, char *argv[]) {
   cout << "========================================" << endl;
   cout << "  WARZONE — Command Processing Driver   " << endl;
@@ -40,10 +34,10 @@ int run_command_processing_driver(int argc, char *argv[]) {
 
   if (mode == "-console") {
     cout << "\n[Mode] Console — type commands manually." << endl;
-    cout << "Commands (name or number):\n"
-         << "  load-map(1), validate-map(2), add-player(3),\n"
-         << "  assign-countries(4), issue-order(5), end-issue-orders(6),\n"
-         << "  exec-order(7), end-exec-orders(8), win(9), play(10), end(11)\n"
+    cout << "Commands:\n"
+         << "  loadmap <mapfile>, validatemap, addplayer <playername>,\n"
+         << "  gamestart, issueorders, issueorder, endissueorders,\n"
+         << "  execorder, win, replay, quit\n"
          << endl;
 
     processor = new CommandProcessor(engine);
@@ -60,22 +54,24 @@ int run_command_processing_driver(int argc, char *argv[]) {
 
     processor = new FileCommandProcessorAdapter(engine, filename);
 
-  } else {
+  }
+  else {
     cout << "ERROR: Unknown mode \"" << mode << "\"." << endl;
     cout << "Use -console or -file <filename>." << endl;
     delete engine;
     return 1;
   }
 
+
+
   // Main command loop
   printBanner("Starting Command Processing Loop");
-  cout << *engine << endl;
-  cout << "Valid commands: " << engine->getNextValidCommand() << "\n" << endl;
+  cout << *engine << endl; // Prints current state of engine
+  cout << "Valid commands: " << engine->getNextValidCommand() << "\n" << endl; // Shows the user the current valid command for this state
 
   while (true) {
-    // Step 1: read the next command from the source (console or file).
-    //         readCommand() stores the Command internally via saveCommand().
-    Command *cmd = processor->readCommand();
+    // getCommand() is the public entry point required by the assignment.
+    Command *cmd = processor->getCommand();
 
     // If EOF break the loop
     if (cmd == nullptr) {
@@ -83,18 +79,13 @@ int run_command_processing_driver(int argc, char *argv[]) {
       break;
     }
 
-    // Step 2: validate the command and saves effect
-    bool valid = processor->validate(cmd);
-
-    // Step 3: if valid, apply the state transition
-    if (valid) {
-      engine->transition(cmd->getCommand());
-    }
+    // getCommand() stores invalid commands too, and transition writes the real execution effect only for commands that can be processed.
+    engine->transition(cmd);
 
     // Print the command and its effect
-    cout << *cmd << endl;
-    cout << *engine << endl;
-    cout << "Valid commands: " << engine->getNextValidCommand() << "\n" << endl;
+    cout << *cmd << endl; // Raw command text from the user
+    cout << *engine << endl; // Print state of the engine
+    cout << "Valid commands: " << engine->getNextValidCommand() << "\n" << endl; // Print current possible commands
 
     // Stop if the game has ended
     if (engine->getCurrentState() == END) {
