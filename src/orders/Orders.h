@@ -151,18 +151,18 @@ public:
 
 class NegotiateOrder : public Order {
 private:
-  Player *target;
+  Territory *target;
 
 public:
   NegotiateOrder();
-  NegotiateOrder(Player *issuer, Player *target);
+  NegotiateOrder(Player *issuer, Territory *target);
   NegotiateOrder(const NegotiateOrder &other) = default;
   NegotiateOrder &operator=(const NegotiateOrder &other) = default;
   ~NegotiateOrder() override = default;
   // Getters
-  Player *getTargetPlayer() const;
+  Territory *getTargetTerritory() const;
   // Setters
-  void setTargetPlayer(Player *target);
+  void setTargetTerritory(Territory *target);
   // Methods
   bool validate() override;
   bool execute() override;
