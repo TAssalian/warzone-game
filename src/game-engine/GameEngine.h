@@ -3,6 +3,9 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "../player/Player.h"
+#include "../map/Map.h"
+#include "../cards/Cards.h"
 
 class Command;
 
@@ -39,12 +42,21 @@ class GameEngine {
 private:
   GameState *currentState;
   string *command;
+  Player *players[6];
+  MapLoader* mapLoader;
+  Deck* deck;
 
 public:
   GameEngine();
   GameEngine(const GameEngine &other);
   GameEngine &operator=(const GameEngine &other);
   ~GameEngine();
+
+  void addPlayer(std::string name);
+  int getPlayerCount() const;
+
+  Player** getPlayers();
+  MapLoader* getMapLoader();
 
   // getter for state and state name
   GameState getCurrentState() const;
@@ -68,6 +80,9 @@ public:
   // validate and apply state transition in one call
   bool transition(const std::string &cmd);
   bool transition(Command *cmd);
+
+  // a command-based user interaction to start the game
+  int startupPhase(int argc, char* argv[]);
 
   friend ostream &operator<<(ostream &os, const GameEngine &gameEngine);
 };

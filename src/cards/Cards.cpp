@@ -62,6 +62,16 @@ std::ostream &operator<<(std::ostream &os, const Card &card) {
 
 // ------------- Deck Implementation ---------------
 
+Deck::Deck()
+{
+    // By default will generate a deck of 50 cards with all 5 card types (multiple of each)
+    int deckSize = 50;
+    cards = new std::vector<Card*>();
+    for (int i = 0; i < deckSize; i++) {
+        cards->push_back(new Card(static_cast<CardType>(i % 5)));
+    }
+}
+
 Deck::Deck(std::vector<Card *> &cards) : cards(&cards) {}
 
 Deck::Deck(const Deck &other) {
@@ -154,6 +164,12 @@ Hand::~Hand() {
   }
 
   delete cards;
+}
+
+void Hand::drawFromDeckMultiple(int x, Deck *deck) {
+    for (int i = 0; i < x; i++) {
+        cards->push_back(&deck->draw());
+    }
 }
 
 void Hand::playCard(int index, Deck &deck) {

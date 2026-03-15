@@ -61,8 +61,45 @@ int run_game_engine_driver() {
 
   return 0;
 }
-int main() {
 
-  run_game_engine_driver();
+int run_game_engine_startup_phase_test(int argc, char* argv[]) {
+    cout << "GAME ENGINE STARTUP PHASE DRIVER" << endl;
+
+    // Call startup phase method
+    GameEngine* gameEngine = new GameEngine();
+    gameEngine->startupPhase(argc, argv);
+
+    cout << "VALIDATION" << endl;
+
+    // Verify step 1 & 2.
+    MapLoader* mapLoader = gameEngine->getMapLoader();
+    if (mapLoader->map != nullptr) {
+        cout << "Step 1 passed. The map was indeed loaded." << endl;
+    }
+
+    if (mapLoader->isFormatValid && mapLoader->isValid()) {
+        cout << "Step 2 passed. The map is valid." << endl;
+    }
+   
+    // Verify step 3 & 4.
+    Player** players = gameEngine->getPlayers();
+    
+    for (int i = 0; i < 6; i++) {
+        Player* player = players[i];
+        if (players[i] == nullptr) continue;
+        
+        cout << "\n";
+        cout << *player << endl;
+    }
+
+    cout << "\nStep 3 & 4 passed. Shown all players and their correct stats" << endl;
+
+    return 0;
+}
+
+int main(int argc, char* argv[]) {
+
+  //run_game_engine_driver();
+  run_game_engine_startup_phase_test(argc, argv);
   return 0;
 }

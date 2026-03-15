@@ -53,7 +53,9 @@ Player::~Player() {
 
 std::ostream &operator<<(std::ostream &os, const Player &p) {
   os << "Player ID: " << *p.id << ", Name: " << *p.name
-     << ", Territories owned: " << p.territories->size();
+     << ", Territories owned: " << p.territories->size() 
+     << ", Reinforcement pool:" <<p.reinforcementPool
+     << ", Hand: " << *p.getHand();
   return os;
 }
 

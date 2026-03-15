@@ -24,6 +24,7 @@ public:
   void returnCard(Card *card);
   int size() const;
 
+  Deck();
   Deck(std::vector<Card *> &cards);
   Deck(const Deck &other);
   Deck &operator=(const Deck &other);
@@ -44,6 +45,7 @@ public:
 
   std::vector<Card *> *cards;
 
+  void drawFromDeckMultiple(int x, Deck* deck);
   void playCard(int index, Deck &deck);
   int size() const;
 
