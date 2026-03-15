@@ -1,4 +1,6 @@
 #include "Orders.h"
+#include "../cards/Cards.h"
+#include <algorithm>
 using namespace std;
 
 //-------------ORDER IMPLEMENTATION--------------//
@@ -90,7 +92,8 @@ bool DeployOrder::validate() {
   // Check if target territory is null
   if (targetTerritory == nullptr || issuer == nullptr) {
     setIsExecuted(false);
-    setEffect("Deploy order validation failed. Target territory or issuer is null.");
+    setEffect(
+        "Deploy order validation failed. Target territory or issuer is null.");
     return false;
   }
 
@@ -98,24 +101,33 @@ bool DeployOrder::validate() {
   const vector<Territory *> &playerTerritories = issuer->getTerritories();
   for (Territory *territory : playerTerritories) {
     if (territory == targetTerritory) {
-      // TODO: Check if player has enough reinforcement armies in pool
+      if (issuer->getReinforcementPool() < numArmies) {
+        setIsExecuted(false);
+        setEffect("Deploy order validation failed. Not enough armies in the "
+                  "reinforcement pool.");
+        return false;
+      }
       return true;
     }
   }
   setIsExecuted(false);
-  setEffect("Deploy order validation failed. Target territory does not belong to the issuer.");
+  setEffect("Deploy order validation failed. Target territory does not belong "
+            "to the issuer.");
   return false;
 }
 
 bool DeployOrder::execute() {
   if (validate()) {
     // Add armies to the target territory
-    targetTerritory->setArmiesNum(*(targetTerritory->getArmiesNum()) + numArmies);
+    targetTerritory->setArmiesNum(*(targetTerritory->getArmiesNum()) +
+                                  numArmies);
+    // Deduct from reinforcement pool
+    issuer->setReinforcementPool(issuer->getReinforcementPool() - numArmies);
     setIsExecuted(true);
     setEffect("Deployed " + to_string(numArmies) + " armies to " +
               *(targetTerritory->getName()));
     return true;
-  } 
+  }
   return false;
 }
 
@@ -153,82 +165,109 @@ void AdvanceOrder::setTargetTerritory(Territory *target) {
 
 // Methods
 
-bool AdvanceOrder::validate() { 
-// Check if target territory is null
-  if (target == nullptr || issuer == nullptr) {
+bool AdvanceOrder::validate() {
+  // Check if source/target/issuer is null
+  if (source == nullptr || target == nullptr || issuer == nullptr) {
     setIsExecuted(false);
-    setEffect("Advance order validation failed. Target territory or issuer is null.");
+    setEffect("Advance order validation failed. Source/target territory or "
+              "issuer is null.");
     return false;
   }
 
   // Check if the source territory belongs to the player that issued the order
   const vector<Territory *> &playerTerritories = issuer->getTerritories();
+  bool sourceOwned = false;
   for (Territory *territory : playerTerritories) {
-    if (territory != source) {
+    if (territory == source) {
+      sourceOwned = true;
+      break;
+    }
+  }
+  if (!sourceOwned) {
     setIsExecuted(false);
-    setEffect("Advance order validation failed. Source territory does not belong to the issuer.");
+    setEffect("Advance order validation failed. Source territory does not "
+              "belong to the issuer.");
+    return false;
+  }
+  // Check if the players are in peace
+  for (Player *negotiatedPlayer : issuer->getNegotiatedPlayers()) {
+    if (negotiatedPlayer->getId() == *(target->playerId)) {
+      setIsExecuted(false);
+      setEffect("Advance order validation failed. Issuer is in peace with "
+                "target player.");
       return false;
     }
   }
 
-  //Check if the target territory is adjacent to the source territory
-  vector<int*>* neighbourIds=source->getNeighborsIds();
-  for(int* neighbourId:*neighbourIds){
-    if(*neighbourId==*target->id){
+  // Check if the target territory is adjacent to the source territory
+  vector<int *> *neighbourIds = source->getNeighborsIds();
+  for (int *neighbourId : *neighbourIds) {
+    if (*neighbourId == *target->id) {
       return true;
     }
-  } 
+  }
   setIsExecuted(false);
-  setEffect("Advance order validation failed. Target territory is not adjacent to source territory.");
+  setEffect("Advance order validation failed. Target territory is not adjacent "
+            "to source territory.");
   return false;
 }
 
 bool AdvanceOrder::execute() {
   if (validate()) {
-    //If the target is owned by player move armies
-    if(*(target->playerId) == *(source->playerId)){
-      *(source->armiesNum) -= numArmies;
-      *(target->armiesNum) += numArmies;
-    }
-    //Else attack the target
-    else{
+    // If the target is owned by the same player, just move armies
+    if (*(target->playerId) == *(source->playerId)) {
+      source->setArmiesNum(*(source->getArmiesNum()) - numArmies);
+      target->setArmiesNum(*(target->getArmiesNum()) + numArmies);
+      setIsExecuted(true);
+      setEffect("Moved " + to_string(numArmies) + " armies from " +
+                *(source->getName()) + " to " + *(target->getName()));
+    } else {
+      // Check if there is a negotiate peace treaty in effect
+      // Find the defender player by scanning issuer's negotiated list
+      if (issuer->isNegotiatedWith(nullptr)) {
+        // placeholder; real check is done per-player below
+      }
+      // We can't directly look up the Player* from playerId here without a
+      // game-level registry, so we track negotiation on the issuer side.
+      // The NegotiateOrder::execute() stores the target Player* on issuer.
+      // Advanced check: compare target->playerId against negotiated players'
+      // ids. For now, trust that NegotiateOrder sets up bidirectional entries.
+
+      // Deduct attacking armies from source
+      source->setArmiesNum(*(source->getArmiesNum()) - numArmies);
+
       int attackingArmies = numArmies;
-      int defendingArmies = *(target->armiesNum);
+      int defendingArmies = *(target->getArmiesNum());
 
-      //Send the armies from source to target
-			source->setArmiesNum(*(source->getArmiesNum() - numArmies));
-
+      // Battle simulation
       while (attackingArmies > 0 && defendingArmies > 0) {
-					//Atacker has a 60% chance to kill a defender army
-					bool attackerRoll = (rand() % 100) < 60;
-					//Defender has a 70% chance to kill an attacker army
-					bool defenderRoll = (rand() % 100) < 70;
+        // Each attacker has 60% chance to kill a defender
+        if ((rand() % 100) < 60) {
+          defendingArmies--;
+        }
+        // Each defender has 70% chance to kill an attacker
+        if ((rand() % 100) < 70) {
+          attackingArmies--;
+        }
+      }
 
-					if (attackerRoll) {
-						defendingArmies--;
-					}
-					if (defenderRoll) {
-						attackingArmies--;
-					}
-			}
-
-      //Defender wins
-      if(defendingArmies>0){
+      if (defendingArmies > 0) {
+        // Defender wins — restore surviving defenders
         target->setArmiesNum(defendingArmies);
         setIsExecuted(true);
-        setEffect("Attacked " + *(target->getName()) + " and lost.)");
-      }
-      //Attacker wins
-      else{
+        setEffect("Attacked " + *(target->getName()) + " and lost.");
+      } else {
+        // Attacker wins — capture territory
         target->setArmiesNum(attackingArmies);
-        target->id=source->playerId;
+        *target->playerId = *source->playerId; // transfer ownership
+        issuer->addTerritory(target);
+        issuer->setConqueredThisTurn(true);
         setIsExecuted(true);
-        setEffect("Attacked " + *(target->getName()) + " and conquered it.)");
-      }   
-      
+        setEffect("Attacked " + *(target->getName()) + " and conquered it.");
+      }
     }
     return true;
-  } 
+  }
   return false;
 }
 
@@ -248,46 +287,80 @@ Territory *BombOrder::getTargetTerritory() const { return target; }
 void BombOrder::setTargetTerritory(Territory *target) { this->target = target; }
 
 // Methods
-bool BombOrder::validate() { 
-  // Check if target territory is null
+bool BombOrder::validate() {
+  // Check if target territory or issuer is null
   if (target == nullptr || issuer == nullptr) {
     setIsExecuted(false);
-    setEffect("Bomb order validation failed. Target territory or issuer is null.");
+    setEffect(
+        "Bomb order validation failed. Target territory or issuer is null.");
     return false;
   }
 
-  //check if target belongs to the player that issued the order
+  // Target must NOT belong to the issuer
   const vector<Territory *> &playerTerritories = issuer->getTerritories();
   for (Territory *territory : playerTerritories) {
     if (territory == target) {
       setIsExecuted(false);
-      setEffect("Bomb order validation failed. Target territory belongs to the issuer.");
-      return false; 
+      setEffect("Bomb order validation failed. Target territory belongs to the "
+                "issuer.");
+      return false;
+    }
+  }
+  // Check if the players are in peace
+  for (Player *negotiatedPlayer : issuer->getNegotiatedPlayers()) {
+    if (negotiatedPlayer->getId() == *(target->playerId)) {
+      setIsExecuted(false);
+      setEffect("Bomb order validation failed. Issuer is in peace with target "
+                "player.");
+      return false;
     }
   }
 
-  //check if the target is adjacent to any of the players territories
-  for(Territory *territory:playerTerritories){
-    vector<int*>* neighbourIds=territory->getNeighborsIds();
-    for(int* neighbourId:*neighbourIds){
-      if(*neighbourId==*target->id){
-        return true;  
+  // Target must be adjacent to at least one of the issuer's territories
+  bool isAdjacent = false;
+  for (Territory *territory : playerTerritories) {
+    vector<int *> *neighbourIds = territory->getNeighborsIds();
+    for (int *neighbourId : *neighbourIds) {
+      if (*neighbourId == *target->id) {
+        isAdjacent = true;
+        break;
       }
     }
   }
-  setIsExecuted(false);
-  setEffect("Bomb order validation failed. Target territory is not adjacent to any of the issuer territories.");
-  return true; 
+
+  if (!isAdjacent) {
+    setIsExecuted(false);
+    setEffect("Bomb order validation failed. Target territory is not adjacent "
+              "to any of the issuer territories.");
+    return false;
+  }
+
+  // Check if the player has a Bomb card
+  bool hasCard = false;
+  for (Card *card : *issuer->getHand()->cards) {
+    if (card->type == CardType::Bomb) {
+      hasCard = true;
+      break;
+    }
+  }
+  if (!hasCard) {
+    setIsExecuted(false);
+    setEffect(
+        "Bomb order validation failed. Issuer does not have a Bomb card.");
+    return false;
+  }
+
+  return true;
 }
 
 bool BombOrder::execute() {
   if (validate()) {
-    //Halve the number of armies in target territory
+    // Halve the number of armies in target territory
     *(target->armiesNum) /= 2;
     setIsExecuted(true);
     setEffect("Bombed " + *(target->getName()) + "successfully.");
     return true;
-  } 
+  }
   return false;
 }
 
@@ -308,36 +381,60 @@ void BlockadeOrder::setTargetTerritory(Territory *target) {
 }
 
 // Methods
-bool BlockadeOrder::validate() { 
-  // Check if target territory is null
+bool BlockadeOrder::validate() {
+  // Check if target territory or issuer is null
   if (target == nullptr || issuer == nullptr) {
     setIsExecuted(false);
-    setEffect("Blockade order validation failed. Target territory or issuer is null.");
+    setEffect("Blockade order validation failed. Target territory or issuer is "
+              "null.");
+    return false;
+  }
+  // Check if the player has a Blockade card
+  bool hasCard = false;
+  for (Card *card : *issuer->getHand()->cards) {
+    if (card->type == CardType::Blockade) {
+      hasCard = true;
+      break;
+    }
+  }
+  if (!hasCard) {
+    setIsExecuted(false);
+    setEffect("Blockade order validation failed. Issuer does not have a "
+              "Blockade card.");
     return false;
   }
 
-  //check if target belongs to the player that issued the order
+  // Target must belong to the player that issued the order
   const vector<Territory *> &playerTerritories = issuer->getTerritories();
+  bool targetOwned = false;
   for (Territory *territory : playerTerritories) {
-    if (territory != target) {
-      setIsExecuted(false);
-      setEffect("Blockade order validation failed. Target territory belongs to the enemy.");
-      return false; 
+    if (territory == target) {
+      targetOwned = true;
+      break;
     }
   }
-  return true; 
+  if (!targetOwned) {
+    setIsExecuted(false);
+    setEffect("Blockade order validation failed. Target territory does not "
+              "belong to the issuer.");
+    return false;
+  }
+  return true;
 }
 
 bool BlockadeOrder::execute() {
   if (validate()) {
-    //Triple the number of armies in target territory
-    *(target->armiesNum) *= 3;
-    //TO-DO: Set the owner of target territory to neutral
+    // Double the number of armies (spec says double, not triple)
+    target->setArmiesNum(*(target->getArmiesNum()) * 2);
+    // Transfer ownership to Neutral (playerId = -1 represents Neutral)
+    *target->playerId = -1;
+    // Remove territory from issuer's list
+    issuer->removeTerritory(target);
     setIsExecuted(true);
     setEffect("Blockaded territory " + *(target->getName()) +
-              ", tripling its armies and making it neutral.");
+              ", doubling its armies and transferring to Neutral player.");
     return true;
-  } 
+  }
   return false;
 }
 
@@ -348,8 +445,8 @@ AirliftOrder::AirliftOrder()
       target(nullptr) {}
 
 // Parameterized Constructor
-AirliftOrder::AirliftOrder(Player *issuer, int numArmies, Territory *target,
-                           Territory *source)
+AirliftOrder::AirliftOrder(Player *issuer, int numArmies, Territory *source,
+                           Territory *target)
     : Order("Airlift", issuer), numArmies(numArmies), source(source),
       target(target) {}
 
@@ -371,28 +468,48 @@ void AirliftOrder::setTargetTerritory(Territory *target) {
   this->target = target;
 }
 // Methods
-bool AirliftOrder::validate() { 
-  // Check if target territory is null
-  if (target == nullptr || issuer == nullptr) {
+bool AirliftOrder::validate() {
+  // Check if source/target/issuer is null
+  if (source == nullptr || target == nullptr || issuer == nullptr) {
     setIsExecuted(false);
-    setEffect("Airlift order validation failed. Target territory or issuer is null.");
+    setEffect("Airlift order validation failed. Source/target territory or "
+              "issuer is null.");
     return false;
   }
 
-  //check if source and target belongs to the player that issued the order
-  const vector<Territory *> &playerTerritories = issuer->getTerritories();
-  for (Territory *territory : playerTerritories) {
-    if (territory != source) {
-      setIsExecuted(false);
-      setEffect("Airlift order validation failed. Source territory does not belong to the issuer.");
-      return false; 
+  if (*(source->playerId) != issuer->getId()) {
+    setIsExecuted(false);
+    setEffect("Airlift order validation failed. Source territory does not "
+              "belong to the issuer.");
+    return false;
+  }
+  if (*(target->playerId) != issuer->getId()) {
+    setIsExecuted(false);
+    setEffect("Airlift order validation failed. Target territory does not "
+              "belong to the issuer.");
+    return false;
+  }
+
+  bool hasCard = false;
+  for (Card *card : *issuer->getHand()->cards) {
+    if (card->type == CardType::Airlift) {
+      hasCard = true;
+      break;
     }
   }
-  for(Territory *territory : playerTerritories) {
-    if (territory != target) {
+  if (!hasCard) {
+    setIsExecuted(false);
+    setEffect("Airlift order validation failed. Issuer does not have a Airlift "
+              "card.");
+    return false;
+  }
+  // Check if the players are in peace
+  for (Player *negotiatedPlayer : issuer->getNegotiatedPlayers()) {
+    if (negotiatedPlayer->getId() == *(target->playerId)) {
       setIsExecuted(false);
-      setEffect("Airlift order validation failed. Target territory does not belong to the issuer.");  
-      return false; 
+      setEffect("Airlift order validation failed. Issuer is in peace with "
+                "target player.");
+      return false;
     }
   }
   return true;
@@ -400,14 +517,14 @@ bool AirliftOrder::validate() {
 
 bool AirliftOrder::execute() {
   if (validate()) {
-    //Add armies to the target territory and remove them from source territory
+    // Add armies to the target territory and remove them from source territory
     *(source->armiesNum) -= numArmies;
     *(target->armiesNum) += numArmies;
     setIsExecuted(true);
     setEffect("Airlifted " + to_string(numArmies) + " armies from " +
               *(source->getName()) + " to " + *(target->getName()));
     return true;
-  } 
+  }
   return false;
 }
 
@@ -417,31 +534,53 @@ NegotiateOrder::NegotiateOrder()
     : Order("Negotiate", nullptr), target(nullptr) {}
 
 // Parameterized Constructor
-NegotiateOrder::NegotiateOrder(Player *issuer, Territory *targetPlayer)
+NegotiateOrder::NegotiateOrder(Player *issuer, Player *targetPlayer)
     : Order("Negotiate", issuer), target(targetPlayer) {}
 
 // Getters
-Territory *NegotiateOrder::getTargetTerritory() const { return target; }
+Player *NegotiateOrder::getTargetPlayer() const { return target; }
 
 // Setters
-void NegotiateOrder::setTargetTerritory(Territory *target) { this->target = target; }
+void NegotiateOrder::setTargetPlayer(Player *targetPlayer) {
+  this->target = targetPlayer;
+}
 
 // Methods
-bool NegotiateOrder::validate() { 
-  // Check if target territory is null
+bool NegotiateOrder::validate() {
+  // Check if target player or issuer is null
   if (target == nullptr || issuer == nullptr) {
     setIsExecuted(false);
-    setEffect("Negotiate order validation failed. Target territory or issuer is null.");
+    setEffect(
+        "Negotiate order validation failed. Target player or issuer is null.");
     return false;
   }
-
-  //check if source and target belongs to the player that issued the order
-  const vector<Territory *> &playerTerritories = issuer->getTerritories();
-  for (Territory *territory : playerTerritories) {
-    if (territory == target) {
+  // A player cannot negotiate with themselves
+  if (target == issuer) {
+    setIsExecuted(false);
+    setEffect(
+        "Negotiate order validation failed. Cannot negotiate with yourself.");
+    return false;
+  }
+  bool hasCard = false;
+  for (Card *card : *issuer->getHand()->cards) {
+    if (card->type == CardType::Diplomacy) {
+      hasCard = true;
+      break;
+    }
+  }
+  if (!hasCard) {
+    setIsExecuted(false);
+    setEffect("Negotiate order validation failed. Issuer does not have a "
+              "Negotiate card.");
+    return false;
+  }
+  // Check if the issuer has already negotiated with the target player
+  for (Player *negotiatedPlayer : issuer->getNegotiatedPlayers()) {
+    if (negotiatedPlayer == target) {
       setIsExecuted(false);
-      setEffect("Negotiate order validation failed. Target territory belongs to the issuer.");
-      return false; 
+      setEffect("Negotiate order validation failed. Issuer has already "
+                "negotiated with this player.");
+      return false;
     }
   }
   return true;
@@ -449,11 +588,14 @@ bool NegotiateOrder::validate() {
 
 bool NegotiateOrder::execute() {
   if (validate()) {
-    //TO-DO: Implement the logic to prevent players from attacking each other until the end of the current turn
+    // Establish bidirectional peace treaty for the remainder of this turn
+    issuer->addNegotiatedPlayer(target);
+    target->addNegotiatedPlayer(issuer);
     setIsExecuted(true);
-    setEffect("Negotiated peace between " + issuer->getName() + " and " + *(target->getName()));
+    setEffect("Negotiated peace between " + issuer->getName() + " and " +
+              target->getName() + ". Neither can attack the other this turn.");
     return true;
-  } 
+  }
   return false;
 }
 

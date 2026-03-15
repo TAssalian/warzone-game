@@ -131,8 +131,8 @@ private:
 
 public:
   AirliftOrder();
-  AirliftOrder(Player *issuer, int numArmies, Territory *target,
-               Territory *source);
+  AirliftOrder(Player *issuer, int numArmies, Territory *source,
+               Territory *target);
   AirliftOrder(const AirliftOrder &other) = default;
   AirliftOrder &operator=(const AirliftOrder &other) = default;
   ~AirliftOrder() override = default;
@@ -151,18 +151,18 @@ public:
 
 class NegotiateOrder : public Order {
 private:
-  Territory *target;
+  Player *target;
 
 public:
   NegotiateOrder();
-  NegotiateOrder(Player *issuer, Territory *target);
+  NegotiateOrder(Player *issuer, Player *target);
   NegotiateOrder(const NegotiateOrder &other) = default;
   NegotiateOrder &operator=(const NegotiateOrder &other) = default;
   ~NegotiateOrder() override = default;
   // Getters
-  Territory *getTargetTerritory() const;
+  Player *getTargetPlayer() const;
   // Setters
-  void setTargetTerritory(Territory *target);
+  void setTargetPlayer(Player *target);
   // Methods
   bool validate() override;
   bool execute() override;
