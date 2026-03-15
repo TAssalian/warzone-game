@@ -226,6 +226,18 @@ string* Territory::getName() const {
 	return name;
 }
 
+vector<int*>* Territory::getNeighborsIds() const {
+    return neighborsIds;
+}
+
+int* Territory::getArmiesNum() const {
+    return armiesNum;
+}
+
+void Territory::setArmiesNum(const int armiesNum) {
+    *this->armiesNum = armiesNum;
+}
+
 std::ostream& operator<<(std::ostream& os, const Territory& t) {
 	os << "Territory Details: { ";
 

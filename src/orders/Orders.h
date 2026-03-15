@@ -131,8 +131,8 @@ private:
 
 public:
   AirliftOrder();
-  AirliftOrder(Player *issuer, int numArmies, Territory *target,
-               Territory *source);
+  AirliftOrder(Player *issuer, int numArmies, Territory *source,
+               Territory *target);
   AirliftOrder(const AirliftOrder &other) = default;
   AirliftOrder &operator=(const AirliftOrder &other) = default;
   ~AirliftOrder() override = default;

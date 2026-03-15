@@ -43,6 +43,9 @@ public:
 	Territory& operator=(const Territory other);
 
 	string* getName() const;
+	vector<int*>* getNeighborsIds() const;
+	int* getArmiesNum() const;
+	void setArmiesNum(const int armiesNum);
 
 	friend ostream& operator<<(ostream& os, const Territory& territory);
 };
