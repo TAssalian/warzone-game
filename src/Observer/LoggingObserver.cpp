@@ -58,14 +58,18 @@ Subject::~Subject() {
 	delete observers;
 };
 
+//attach adds an observer at the end of the list of observers
 void Subject::attach(Observer* observer) {
 	observers->push_back(observer);
 }
-
+//dettach removes an observer from the list of observers
+//by using std::remove to move the observer to the end of the vector and then erasing it
 void Subject::detach(Observer* observer) {
 	observers->erase(
 		std::remove(observers->begin(), observers->end(), observer), observers->end());
 }
+//notify calls the update method
+//for every observer
 void Subject::notify(ILoggable* loggable) {
 	for (Observer* observer : *observers) {
 		observer->update(loggable);
@@ -77,6 +81,8 @@ ostream& operator<<(ostream& os, const Subject& subject) {
 }
 
 //log observer implementation
+//constructor takes a log file name
+//initializes the log file by opening it in trunc mode to clear any existing content
 LogObserver::LogObserver(const string& logFileName) {
 	this->logFileName = new string(logFileName);
 	ofstream ofs(*this->logFileName, ofstream::trunc);
@@ -90,7 +96,8 @@ LogObserver::LogObserver(const string& logFileName) {
 LogObserver::~LogObserver() {
 	delete logFileName;
 }
-
+//this method is called by the subject when it notifies its observers of a change
+//it opens the log file in append mode and writes the string representation of the loggable object to the file
 void LogObserver::update(ILoggable* loggable) {
 	ofstream ofs(*logFileName, ofstream::app);
 	if(!ofs.is_open()) {

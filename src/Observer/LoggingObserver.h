@@ -47,9 +47,9 @@ public:
 	Subject(const Subject& other);
 	Subject& operator=(const Subject& other);
 	virtual ~Subject();
-	virtual void attach(Observer* observer);
-	virtual void detach(Observer* observer);
-	virtual void notify(ILoggable* loggable);
+	 void attach(Observer* observer);
+	 void detach(Observer* observer);
+	 void notify(ILoggable* loggable);
 	friend std::ostream& operator<<(std::ostream& os, const Subject& subject);
 
 	
