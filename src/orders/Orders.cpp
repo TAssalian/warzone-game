@@ -103,6 +103,7 @@ bool DeployOrder::validate() {
   const vector<Territory *> &playerTerritories = issuer->getTerritories();
   for (Territory *territory : playerTerritories) {
     if (territory == targetTerritory) {
+      // Check if the player has enough armies in the reinforcement pool
       if (issuer->getReinforcementPool() < numArmies) {
         setIsExecuted(false);
         setEffect("Deploy order validation failed. Not enough armies in the "
@@ -226,18 +227,6 @@ bool AdvanceOrder::execute() {
                 *(source->getName()) + " to " + *(target->getName()));
       notify(this); // Notify observers of the state change
     } else {
-      // Check if there is a negotiate peace treaty in effect
-      // Find the defender player by scanning issuer's negotiated list
-      if (issuer->isNegotiatedWith(nullptr)) {
-        // placeholder; real check is done per-player below
-      }
-      // We can't directly look up the Player* from playerId here without a
-      // game-level registry, so we track negotiation on the issuer side.
-      // The NegotiateOrder::execute() stores the target Player* on issuer.
-      // Advanced check: compare target->playerId against negotiated players'
-      // ids. For now, trust that NegotiateOrder sets up bidirectional entries.
-
-      // Deduct attacking armies from source
       source->setArmiesNum(*(source->getArmiesNum()) - numArmies);
 
       int attackingArmies = numArmies;
@@ -333,7 +322,7 @@ bool BombOrder::validate() {
       }
     }
   }
-
+  //Check if territories are adjacent
   if (!isAdjacent) {
     setIsExecuted(false);
     setEffect("Bomb order validation failed. Target territory is not adjacent "
@@ -485,6 +474,7 @@ bool AirliftOrder::validate() {
     return false;
   }
 
+  // Check if the source and target territories belong to the player that issued
   if (*(source->playerId) != issuer->getId()) {
     setIsExecuted(false);
     setEffect("Airlift order validation failed. Source territory does not "
@@ -498,6 +488,7 @@ bool AirliftOrder::validate() {
     return false;
   }
 
+  //Check if the player has an Airlift card
   bool hasCard = false;
   for (Card *card : *issuer->getHand()->cards) {
     if (card->type == CardType::Airlift) {
@@ -511,16 +502,6 @@ bool AirliftOrder::validate() {
               "card.");
     return false;
   }
-  // Check if the players are in peace
-  for (Player *negotiatedPlayer : issuer->getNegotiatedPlayers()) {
-    if (negotiatedPlayer->getId() == *(target->playerId)) {
-      setIsExecuted(false);
-      setEffect("Airlift order validation failed. Issuer is in peace with "
-                "target player.");
-      return false;
-    }
-  }
-  return true;
 }
 
 bool AirliftOrder::execute() {
@@ -570,6 +551,8 @@ bool NegotiateOrder::validate() {
         "Negotiate order validation failed. Cannot negotiate with yourself.");
     return false;
   }
+
+  // Check if the player has a Diplomacy card
   bool hasCard = false;
   for (Card *card : *issuer->getHand()->cards) {
     if (card->type == CardType::Diplomacy) {
