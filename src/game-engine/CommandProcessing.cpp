@@ -45,6 +45,7 @@ string Command::getEffect() const { return *effect; }
 void Command::saveEffect(const string &eff) {
   delete effect;
   effect = new string(eff);
+  notify(this); // Notify observers of the change
 }
 
 ostream &operator<<(ostream &os, const Command &cmd) {
@@ -95,6 +96,7 @@ Command *CommandProcessor::readCommand() {
 
 void CommandProcessor::saveCommand(Command *cmd) {
   commandList.push_back(cmd);
+  notify(this); // Notify observers of the new command
 }
 
 Command *CommandProcessor::getCommand() {
@@ -106,6 +108,15 @@ Command *CommandProcessor::getCommand() {
   saveCommand(cmd);
   validate(cmd);
   return cmd;
+}
+
+// Returns a string representation of the CommandProcessor for logging purposes
+string CommandProcessor::stringToLog() const {
+    if (commandList.empty()) return "CommandProcessor: No commands entered yet.";
+    return "CommandProcessor::saveCommand(): [" + commandList.back()->getCommand() + "]";
+}
+string Command::stringToLog() const {
+    return "Command::saveEffect(): [" + *commandText + "] | Effect: [" + *effect + "]";
 }
 
 // Validates whether Command object is legal in the current game state

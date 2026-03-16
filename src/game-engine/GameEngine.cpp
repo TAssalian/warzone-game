@@ -176,6 +176,7 @@ bool GameEngine::transition(const string &cmd) {
     return false;
   }
   setCurrentState(mutableCmd);
+  notify(this); // Notify observers of the state change
   return true;
 }
 
@@ -199,12 +200,14 @@ bool GameEngine::transition(Command *cmd) {
 
   if (commandName == "gamestart") {
     setCurrentState(text);
+    notify(this); // Notify observers of the state change
     cmd->saveEffect("game started; entering reinforcement phase");
     return true;
   }
 
   if (commandName == "issueorders") {
     setCurrentState(text);
+    notify(this); // Notify observers of the state change
     cmd->saveEffect("reinforcements assigned; entering issue orders phase");
     return true;
   }
@@ -216,38 +219,45 @@ bool GameEngine::transition(Command *cmd) {
 
   if (commandName == "endissueorders") {
     setCurrentState(text);
+    notify(this); // Notify observers of the state change
     cmd->saveEffect("all orders issued; entering execute orders phase");
     return true;
   }
 
   if (commandName == "execorder") {
     setCurrentState(text);
+    notify(this); // Notify observers of the state change
     cmd->saveEffect("order executed");
     return true;
   }
 
   if (commandName == "win") {
     setCurrentState(text);
+    notify(this); // Notify observers of the state change
     cmd->saveEffect("game won");
     return true;
   }
 
   if (commandName == "replay") {
     setCurrentState(text);
+    notify(this); // Notify observers of the state change
     cmd->saveEffect("replay selected");
     return true;
   }
 
   if (commandName == "quit") {
     setCurrentState(text);
+    notify(this); // Notify observers of the state change
     cmd->saveEffect("quit selected");
     return true;
   }
 
   // loadmap, validatemap and addplayer done here because state stays the same
   setCurrentState(text);
+  notify(this); // Notify observers of the state change
   cmd->saveEffect("state changed from " + previousState + " to " +
                   getCurrentStateName());
+ 
   return true;
 }
 
@@ -255,4 +265,9 @@ bool GameEngine::transition(Command *cmd) {
 ostream &operator<<(ostream &os, const GameEngine &gameEngine) {
   os << "Current state: " << gameEngine.getCurrentStateName();
   return os;
+}
+
+//logging string for GameEngine
+std::string GameEngine::stringToLog() const {
+    return "GameEngine::transition() [" + getCurrentStateName() + "]";
 }

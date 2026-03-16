@@ -45,10 +45,12 @@ bool Order::execute() {
   if (validate()) {
     setIsExecuted(true);
     setEffect("Order has been executed.");
+    notify(this); // Notify observers of the state change
     return true;
   } else {
     setIsExecuted(false);
     setEffect("Order validation failed. Order has not been executed.");
+    notify(this); // Notify observers of the state change
     return false;
   }
 }
@@ -126,6 +128,7 @@ bool DeployOrder::execute() {
     setIsExecuted(true);
     setEffect("Deployed " + to_string(numArmies) + " armies to " +
               *(targetTerritory->getName()));
+    notify(this); // Notify observers of the state change
     return true;
   }
   return false;
@@ -221,6 +224,7 @@ bool AdvanceOrder::execute() {
       setIsExecuted(true);
       setEffect("Moved " + to_string(numArmies) + " armies from " +
                 *(source->getName()) + " to " + *(target->getName()));
+      notify(this); // Notify observers of the state change
     } else {
       // Check if there is a negotiate peace treaty in effect
       // Find the defender player by scanning issuer's negotiated list
@@ -256,6 +260,7 @@ bool AdvanceOrder::execute() {
         target->setArmiesNum(defendingArmies);
         setIsExecuted(true);
         setEffect("Attacked " + *(target->getName()) + " and lost.");
+        notify(this); // Notify observers of the state change
       } else {
         // Attacker wins — capture territory
         target->setArmiesNum(attackingArmies);
@@ -264,6 +269,7 @@ bool AdvanceOrder::execute() {
         issuer->setConqueredThisTurn(true);
         setIsExecuted(true);
         setEffect("Attacked " + *(target->getName()) + " and conquered it.");
+        notify(this); // Notify observers of the state change
       }
     }
     return true;
@@ -359,6 +365,7 @@ bool BombOrder::execute() {
     *(target->armiesNum) /= 2;
     setIsExecuted(true);
     setEffect("Bombed " + *(target->getName()) + "successfully.");
+    notify(this); // Notify observers of the state change
     return true;
   }
   return false;
@@ -433,6 +440,7 @@ bool BlockadeOrder::execute() {
     setIsExecuted(true);
     setEffect("Blockaded territory " + *(target->getName()) +
               ", doubling its armies and transferring to Neutral player.");
+    notify(this); // Notify observers of the state change
     return true;
   }
   return false;
@@ -523,6 +531,7 @@ bool AirliftOrder::execute() {
     setIsExecuted(true);
     setEffect("Airlifted " + to_string(numArmies) + " armies from " +
               *(source->getName()) + " to " + *(target->getName()));
+    notify(this); // Notify observers of the state change
     return true;
   }
   return false;
@@ -594,10 +603,13 @@ bool NegotiateOrder::execute() {
     setIsExecuted(true);
     setEffect("Negotiated peace between " + issuer->getName() + " and " +
               target->getName() + ". Neither can attack the other this turn.");
+    notify(this); // Notify observers of the state change
+	
     return true;
   }
   return false;
 }
+
 
 //-------------ORDERLIST IMPLEMENTATION--------------//
 // Default Constructor
@@ -641,7 +653,20 @@ vector<Order *> *OrderList::getOrders() const { return orders; }
 
 // Methods
 
-void OrderList::addOrder(Order *order) { orders->push_back(order); }
+void OrderList::addOrder(Order *order) 
+{ 
+    orders->push_back(order);
+	notify(this); // Notify observers that a new order has been added
+}
+
+std::string Order::stringToLog() const {
+    return "Order::execute(): [" + orderType + "] | Effect: [" + orderEffect + "]";
+}
+
+std::string OrderList::stringToLog() const {
+    if (orders->empty()) return "OrderList: No orders added yet.";
+    return "OrderList::addOrder(): [" + orders->back()->getOrderType() + "]";
+}
 
 void OrderList::move(int currentIndex, int newIndex) {
   if (currentIndex < newIndex) {
@@ -672,3 +697,5 @@ std::ostream &operator<<(std::ostream &os, const OrderList &orderList) {
     return os;
   }
 }
+
+
