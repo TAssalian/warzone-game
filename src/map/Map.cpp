@@ -230,12 +230,16 @@ vector<int*>* Territory::getNeighborsIds() const {
     return neighborsIds;
 }
 
-int* Territory::getArmiesNum() const {
-    return armiesNum;
+int Territory::getArmiesNum() const {
+    return *armiesNum;
 }
 
 void Territory::setArmiesNum(const int armiesNum) {
     *this->armiesNum = armiesNum;
+}
+
+void Territory::setPlayerId(const int id) {
+	*this->playerId = id;
 }
 
 std::ostream& operator<<(std::ostream& os, const Territory& t) {
@@ -655,8 +659,10 @@ vector<int*>* MapLoader::getContinentTerritoriesIds(int continentId) {
 
 int MapLoader::getContinentPlayerId(int continentId) {
 	int playerId = *(*map->territories)[*(*map->continents)[0]->territoriesIds->front()]->playerId;
+	std::cout << "--debug " << playerId << "\n";
 	for (auto territoryId : *(*map->continents)[continentId]->territoriesIds) {
 		int p = *(*map->territories)[*territoryId]->playerId;
+		std::cout << "--debug " << p << "\n";
 		if (p != playerId) return -1;
 	}
 	return playerId;

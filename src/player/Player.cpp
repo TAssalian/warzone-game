@@ -1,11 +1,19 @@
 #include <algorithm>
+#include <iostream>
+#include <string>
+#include <sstream>
 
 #include "../cards/Cards.h"
 #include "../map/Map.h"
 #include "../orders/Orders.h"
+#include "../game-engine/GameEngine.h"
 #include "Player.h"
 
+using std::cout, std::stringstream, std::string;
+
 int *Player::nextId = new int(0);
+MapLoader* Player::mapLoader = nullptr;
+GameEngine* Player::gameEngine = nullptr; 
 
 Player::Player(std::string name, Deck *deck)
     : id(new int((*nextId)++)), name(new std::string(name)),
@@ -71,12 +79,18 @@ const std::vector<Territory *> &Player::getTerritories() const {
 
 Hand *Player::getHand() const { return hand; }
 
+Deck* Player::getDeck() { return deck; }
+
 int Player::getReinforcementPool() const { return reinforcementPool; }
 
 bool Player::getConqueredThisTurn() const { return conqueredThisTurn; }
 
 const std::vector<Player *> &Player::getNegotiatedPlayers() const {
   return negotiatedPlayers;
+}
+
+void Player::setId(int id) {
+  (*this->id) = id;
 }
 
 void Player::setReinforcementPool(int pool) { reinforcementPool = pool; }
@@ -109,16 +123,170 @@ void Player::removeTerritory(Territory *territory) {
       territories->end());
 }
 
-// Both return arbitrary lists
-// Just return all territories
+// return territories of this player
 std::vector<Territory *> Player::toDefend() const { return *territories; }
 
-// Just return no territories
+// return a list of neighbor territories of oposing players
 std::vector<Territory *> Player::toAttack() const {
-  return std::vector<Territory *>();
+  int territoriesN = mapLoader->getTerritoriesNum();
+  vector <bool> arr(territoriesN, false);
+  for (auto territory : getTerritories()) {
+    int territoryId_a = *territory->id;
+    for (auto territoryId_b : *mapLoader->getTerritoryNeighborsIds(territoryId_a)) {
+      if (mapLoader->getTerritoryPlayerId(*territoryId_b) != *id) {
+        arr[*territoryId_b] = true;
+      }
+    }
+  }
+
+  vector <Territory*> list;
+
+  for (int i = 0; i < territoriesN; i++) {
+    if (arr[i]) {
+      list.push_back((*mapLoader->map->territories)[i]);
+    }
+  }
+
+  return list;
 }
 
-void Player::issueOrder() {
-  Order *order = new Order("PlaceholderOrder", this);
-  orders->addOrder(order);
+void Player::issueOrder(string input) {
+  Order *order = nullptr;
+
+  string commandType;
+  stringstream ss(input);
+
+  auto defendTerritories = toDefend();
+  auto attackTerritories = toAttack();
+  
+  
+  string orderType;
+  ss >> orderType;
+
+  if (orderType == "deploy") {
+    int armNum, territoryId;
+    // check the arguments
+    if (ss >> armNum >> territoryId) {
+
+      // check if territoryId is ok (is in defend list)
+      Territory* territory = nullptr;
+      for (auto x : defendTerritories) {
+        if (*x->id == territoryId) {
+          territory = x;
+          break;
+        }
+      }
+      if (territory == nullptr) {
+        cout << "Error: Territory id is not from the defend list\n";
+      } else if (armNum > reinforcementPool || armNum <= 0) {
+        cout << "Error: Armies number should be between 1 and the reinforcement pool\n";
+      } else {
+        reinforcementPool -= armNum;
+        order = new DeployOrder(this, armNum, territory);
+      }
+    }
+  } else {
+    if (reinforcementPool == 0) {
+      if (orderType == "advance") {
+        int armNum, sourceTerritoryId, targetTerritoryId;
+        if (ss >> armNum >> sourceTerritoryId >> targetTerritoryId) {
+          Territory *sourceTerritory = nullptr, *targetTerritory = nullptr;
+
+          // sourceTerritory should be from defend list
+          // targetTerritory should be from defend or attack list
+
+          for (auto x : defendTerritories) {
+            if (*x->id == sourceTerritoryId) {
+              sourceTerritory = x;
+            }
+            if (*x->id == targetTerritoryId) {
+              targetTerritory = x;
+            }
+          }
+
+          for (auto x : attackTerritories) {
+            if (*x->id == targetTerritoryId) {
+              targetTerritory = x;
+            }
+          }
+
+          if (targetTerritory == nullptr || sourceTerritory == nullptr) {
+            cout << "Error: Source and target territories should be from defend and defend/attack lists respectively\n";
+          } else {
+            order = new AdvanceOrder(this, armNum, sourceTerritory, targetTerritory);
+          }
+        }
+      }
+      else if (orderType == "airlift") {
+        int armNum, sourceTerritoryId, targetTerritoryId; 
+        if (ss >> armNum >> sourceTerritoryId >> targetTerritoryId) {
+          Territory *sourceTerritory = nullptr, *targetTerritory = nullptr;
+
+          for (auto x : *mapLoader->map->territories) {
+            if (*x->id == sourceTerritoryId) {
+              sourceTerritory = x;
+            }
+            if (*x->id == targetTerritoryId) {
+              targetTerritory = x;
+            }
+          }
+
+          order = new AirliftOrder(this, armNum, sourceTerritory, targetTerritory);
+        }
+      }
+      else if (orderType == "bomb") {
+        int targetTerritoryId;
+        if (ss >> targetTerritoryId) {
+          Territory *targetTerritory = nullptr;
+
+          for (auto x : *mapLoader->map->territories) {
+            if (*x->id == targetTerritoryId) {
+              targetTerritory = x;
+            }
+          }
+
+          order = new BombOrder(this, targetTerritory);
+        }
+      }
+      else if (orderType == "blockade") {
+        int targetTerritoryId;
+        if (ss >> targetTerritoryId) {
+          Territory *targetTerritory = nullptr;
+
+          for (auto x : *mapLoader->map->territories) {
+            if (*x->id == targetTerritoryId) {
+              targetTerritory = x;
+            }
+          }
+
+          order = new BlockadeOrder(this, targetTerritory);
+        }
+      }
+      else if (orderType == "negotiate") {
+        int opponentPlayerId;
+        if (ss >> opponentPlayerId) {
+          Player* opponentPlayer = nullptr;
+
+          // find opponentPlayer between active players
+          for (int i = 0; i < gameEngine->getPlayerCount(); i++) {
+            if (gameEngine->getPlayers()[i]->getTerritories().size() > 0 && gameEngine->getPlayers()[i]->getId() == opponentPlayerId) {
+              opponentPlayer = gameEngine->getPlayers()[i];
+            }
+          }
+
+          order = new NegotiateOrder(this, opponentPlayer);
+        }
+      }
+    } else {
+      cout << "Error: You have to first deploy your reinforcement pool\n";
+    }
+  }
+  
+
+  if (order == nullptr) {
+    cout << "Error: There is a problem with the order issued\n\n";
+  } else {
+    orders->addOrder(order);
+    cout << "Success: Order issued successfully\n\n";
+  }
 }

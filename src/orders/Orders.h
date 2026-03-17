@@ -3,6 +3,7 @@
 
 #include "../map/Map.h"
 #include "../player/Player.h"
+#include "../game-engine/GameEngine.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -35,6 +36,8 @@ public:
   // Methods
   virtual bool validate();
   virtual bool execute();
+
+  static GameEngine* gameEngine;
 };
 
 class DeployOrder : public Order {

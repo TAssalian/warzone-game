@@ -4,6 +4,8 @@
 
 enum CardType { Bomb, Reinforcement, Blockade, Airlift, Diplomacy };
 
+std::string cardTypeName(CardType t);
+
 class Card {
 public:
   CardType type;

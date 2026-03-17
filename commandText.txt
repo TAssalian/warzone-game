@@ -1,0 +1,1 @@
+g++ ./src/cards/Cards.cpp ./src/game-engine/CommandProcessing.cpp ./src/game-engine/GameEngine.cpp ./src/game-engine/GameEngineDriver.cpp ./src/map/Map.cpp ./src/orders/Orders.cpp ./src/player/Player.cpp

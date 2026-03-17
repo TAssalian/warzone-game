@@ -5,7 +5,11 @@
 #include <sstream>
 #include <vector>
 #include "../map/Map.h"
+#include "../orders/Orders.h"
+#include "../player/Player.h"
+#include "../cards/Cards.h"
 #include <random>
+#include <algorithm>
 
 using std::cout;
 using std::endl;
@@ -92,6 +96,9 @@ GameEngine &GameEngine::operator=(const GameEngine &other) {
 }
 // destructor
 GameEngine::~GameEngine() {
+  for (int i = 0; i < getPlayerCount(); i++) {
+    delete players[i];
+  }
   delete [] players;
   delete currentState;
   delete command;
@@ -182,7 +189,8 @@ bool GameEngine::validateCommand(string &command) {
   case ASSIGN_REINFORCEMENT:
     return isCommand(command, "issueorders");
   case ISSUE_ORDERS:
-    return isCommand(command, "issueorder") || isCommand(command, "endissueorders");
+    return true;
+    // return isCommand(command, "issueorder") || isCommand(command, "endissueorders");
   case EXECUTE_ORDERS:
     return isCommand(command, "execorder") || isCommand(command, "win");
   case WIN:
@@ -215,7 +223,7 @@ string GameEngine::getNextValidCommand() const {
       return "Players Added -> addplayer <playername> | gamestart";
   }
   case ASSIGN_REINFORCEMENT:
-    return "Assign Reinforcement -> issueorders";
+    return "See the instructions below";
   case ISSUE_ORDERS:
     return "Issue Orders -> issueorder | endissueorders";
   case EXECUTE_ORDERS:
@@ -260,31 +268,32 @@ bool GameEngine::transition(Command *cmd) {
 
   if (commandName == "gamestart") {
 
-      // --- Step 1: Distribute territories evenly to players. ---
       Map* map = mapLoader->map;
-      std::vector<Territory*>* territories = map->territories;
+      std::vector<Territory*> territories(*map->territories);
       
       int territoryCount = map->territories->size();
       int playerCount = getPlayerCount();
 
       if (playerCount <= 0) return false;
 
-      // Shuffle territories to ensure randomness
+      // --- Step 1: Determine randomly the order of player for players in the game. ---
+      // We can do this by shuffling the player array and whoever's in position 0 will go first
       std::random_device rd;
       std::mt19937 g(rd());
-      std::shuffle(territories->begin(), territories->end(), g);
+      std::shuffle(std::begin(players), std::begin(players) + playerCount, g);
 
+      // shuffle territories too
+      std::shuffle(std::begin(territories), std::end(territories), g);
+
+
+      // --- Step 2: Distribute territories evenly to players. ---
       // Distribute them to each player one at a time
-      for (int i = 0; i < territories->size(); ++i) {
+      for (int i = 0; i < territories.size(); ++i) {
           int playerIndex = i % playerCount;
-          players[playerIndex]->addTerritory(territories->at(i));
+          players[playerIndex]->setId(playerIndex);
+          players[playerIndex]->addTerritory(territories.at(i));
+          *territories.at(i)->playerId = playerIndex;
       }
-
-      // --- Step 2: Determine randomly the order of player for players in the game. ---
-      // We can do this by shuffling the player array and whoever's in position 0 will go first
-      std::random_device rd2;
-      std::mt19937 hg(rd());
-      std::shuffle(std::begin(players), std::end(players), hg);
 
       // --- Step 3: Distribute 50 initial armies, placed in reinforcement pool ---
       //                        AND
@@ -301,22 +310,22 @@ bool GameEngine::transition(Command *cmd) {
       return true;
   }
 
-  if (commandName == "issueorders") {
-    setCurrentState(text);
-    cmd->saveEffect("reinforcements assigned; entering issue orders phase");
-    return true;
-  }
+  // if (commandName == "issueorders") {
+  //   setCurrentState(text);
+  //   cmd->saveEffect("reinforcements assigned; entering issue orders phase");
+  //   return true;
+  // }
 
   if (commandName == "issueorder") {
+    // setCurrentState(text);
     cmd->saveEffect("order issued");
     return true;
   }
 
-  if (commandName == "endissueorders") {
-    setCurrentState(text);
-    cmd->saveEffect("all orders issued; entering execute orders phase");
-    return true;
-  }
+  // if (commandName == "endissueorders") {
+  //   cmd->saveEffect("all orders issued; entering execute orders phase");
+  //   return true;
+  // }
 
   if (commandName == "execorder") {
     setCurrentState(text);
@@ -357,7 +366,7 @@ bool GameEngine::transition(Command *cmd) {
       if (dotPos) {
           mapName = mapName.substr(0, dotPos);
       }
-      string file = "../data/maps/" + mapName + ".map";
+      string file = "./data/maps/" + mapName + ".map";
       
       if (mapLoader != nullptr){
           delete mapLoader;
@@ -375,13 +384,13 @@ bool GameEngine::transition(Command *cmd) {
           return false;
       }
 
-      if (mapLoader->isFormatValid && mapLoader->isValid()) {
+      if (mapLoader->isValid()) {
           setCurrentState(text);
           cmd->saveEffect("The map is valid.");
       }
       else {
           setCurrentState("start");
-          cmd->saveEffect("The map could not be validated, please use a different map. Error: " + *mapLoader->getErrMsg());
+          cmd->saveEffect("The map could not be validated, please use a different map. Error: " + string(mapLoader->getErrMsg()));
       }
 
       return true;
@@ -451,6 +460,11 @@ int GameEngine::startupPhase(int argc, char* argv[])
         cout << *this << endl; // Print state of the engine
         cout << "Valid commands: " << this->getNextValidCommand() << "\n" << endl; // Print current possible commands
 
+        // main game loop
+        if (this->getCurrentState() == GameState::ASSIGN_REINFORCEMENT) {
+          mainGameLoop(processor);
+        }
+
         // Stop if the game has ended
         if (this->getCurrentState() == END) {
             cout << "[Driver] Game ended (quit received)." << endl;
@@ -463,6 +477,230 @@ int GameEngine::startupPhase(int argc, char* argv[])
     delete processor;
     return 0;
 }
+
+void GameEngine::printGameStats() {
+  // print continents
+  cout << "\nContinents: <id> <name> <bonus value>\n";
+  for (int i = 0; i < mapLoader->getContinentsNum(); i++) {
+    cout << i << " " << *mapLoader->getContinentName(i) << " " << mapLoader->getContinentBonusValue(i) << "\n";
+  }
+  
+  // print territories
+  cout << "\nTerritories: <id> <name> <continent> <owner> <armies> \n";
+  for (int i = 0; i < mapLoader->getTerritoriesNum(); i++) {
+    int continentId = mapLoader->getTerritoryContinentId(i);
+    int playerId = mapLoader->getTerritoryPlayerId(i);
+
+    cout << i << " " << *mapLoader->getTerritoryName(i) << " "
+      << continentId << "-" << *mapLoader->getContinentName(continentId) << " ";   
+      if (playerId != -1) {
+        cout << playerId << "-" << players[playerId]->getName();
+      } else {
+        cout << "neutral";
+      }
+      cout << " " << mapLoader->getTerritoryArmiesNum(i) << "\n";
+  }
+
+  // print borders
+  cout << "\nBorders: <territoryId> <neighboarsIdsLists>\n";
+  for (int i = 0; i < mapLoader->getTerritoriesNum(); i++) {
+    cout << i << ":";
+    for (auto neighborId : *mapLoader->getTerritoryNeighborsIds(i)) {
+      cout << " " << *neighborId;
+    }
+    cout << "\n";
+  }
+
+  // print players
+  cout << "\nPlayers: <id> <name> <reinforcement> <cards list>\n";
+  for (int i = 0; i < getPlayerCount(); i++) {
+    // skip if not active
+    if (players[i]->getTerritories().empty()) continue;
+
+    cout << i << " " << players[i]->getName() << " " << players[i]->getReinforcementPool() << " ";
+
+    cout << "[";
+    bool first = true;
+    for (auto card : *players[i]->getHand()->cards) {
+      if (!first) cout << ", ";
+      first = false;
+      cout << cardTypeName(card->type);
+    }
+    cout << "]\n";
+  }
+}
+
+void GameEngine::mainGameLoop(CommandProcessor* processor) {
+  cout << "---------------------Welcome to the game-----------------------\n";
+  cout << "Initital Stats\n";
+  printGameStats();
+
+  Player::mapLoader = mapLoader;
+  Player::gameEngine = this;
+  Order::gameEngine = this;
+
+  while (getCurrentState() != GameState::WIN && getCurrentState() != GameState::END) {
+    reinforcementPhase();
+
+    // print new turn stats after this turn reinforcement phase
+    cout << "\n\n-------New turn [after reinforcement phase]--------\n";
+    printGameStats();
+
+    issueOrdersPhase(processor);
+    executeOrdersPhase();
+
+    // check if there is one person owns all the territories and he wins
+    for (int i = 0; i < getPlayerCount(); i++) {
+      if (players[i]->getTerritories().size() == mapLoader->getTerritoriesNum()) {
+        setCurrentState("win");
+
+        cout << "-------- Congratulations: player " << i << "-" << players[i]->getName() << " won!!! ----------\n\n";
+      }
+    }
+  }
+}
+
+void GameEngine::reinforcementPhase() {
+  // add pool inforcement troops for territories
+  for (int i = 0; i < getPlayerCount(); i++) {
+    players[i]->setReinforcementPool(
+      static_cast<int>(players[i]->getTerritories().size()) / 3 
+      + players[i]->getReinforcementPool());
+  }
+
+  // add pool inforcement troops for continents bonus value
+  for (int i = 0; i < mapLoader->getContinentsNum(); i++) {
+    int playerId = -2;
+
+    // check if the continent i belongs to one single player
+    for (int j = 0; j < mapLoader->getTerritoriesNum(); j++) {
+      if (mapLoader->getTerritoryContinentId(j) != i) continue; // skip
+
+      if (playerId == -2) {
+        playerId = mapLoader->getTerritoryPlayerId(j);
+      } else if (playerId != mapLoader->getTerritoryPlayerId(j)) {
+        playerId = -1;
+        break;
+      }
+    }
+
+    if (playerId >= 0) {
+      players[playerId]->setReinforcementPool(players[playerId]->getReinforcementPool() + mapLoader->getContinentBonusValue(i));
+    }
+  }
+
+  // minimum 3 armies should go to reinforcement pools of active players
+  for (int i = 0; i < getPlayerCount(); i++) {
+    if (!players[i]->getTerritories().empty()) {
+      players[i]->setReinforcementPool(std::max(3, players[i]->getReinforcementPool()));
+    }
+  }
+}
+
+void GameEngine::issueOrdersPhase(CommandProcessor* processor) {
+
+  setCurrentState("issueorders");
+
+  int activePlayersCount = 0;
+  for (int i = 0; i < getPlayerCount(); i++) {
+    if (players[i]->getTerritories().size() > 0) activePlayersCount++;
+  }
+
+  vector<bool> isPlayerFinishedOrdering(getPlayerCount(), false);
+  int finishedOrderingPlayerCount = 0;
+
+  while (finishedOrderingPlayerCount != activePlayersCount) {
+    for (int i = 0; i < getPlayerCount(); i++) {
+      // if the player is not active or is finished ordering skip
+      if (players[i]->getTerritories().size() == 0 || isPlayerFinishedOrdering[i]) {
+        continue;
+      }
+
+      // -- display the instrunctions for ordering for player i
+      cout << "\n--------------\n";
+      cout << "Ordering instructions for player " << i << "-" << players[i]->getName()
+        << " with reinforcement " << players[i]->getReinforcementPool() << "\n";
+      cout << "--------------\n";
+      cout << "deploy <armNum> <territoryId>\n";
+      cout << "advance <armNum> <sourceTerritoryId> <targetTerritoryId>\n";
+      cout << "airlift <armNum> <sourceTerritoryId> <targetTerritoryId>\n";
+      cout << "bomb <targetTerritoryId>\n";
+      cout << "blockade <targetTerritoryId>\n";
+      cout << "negotiate <opponentPlayerId>\n";
+      cout << "endissueorder\n";
+      cout << "\n";
+      // --
+
+      // getCommand() is the public entry point required by the assignment.
+      Command* cmd = processor->getCommand();
+
+      // If EOF break the loop
+      if (cmd == nullptr) {
+          cout << "\n[Driver] No more commands from source. Stopping." << endl;
+          setCurrentState("quit");
+          break;
+      }
+
+
+      // check endissueorder command
+      if (extractCommandName(cmd->getCommand()) == "endissueorder") {
+        if (players[i]->getReinforcementPool() > 0) {
+          cout << "Error: you can't stop issueing orders, you haven't deployed you reinforcement pool yet\n";
+        } else {
+          finishedOrderingPlayerCount++;
+          isPlayerFinishedOrdering[i] = true;
+        }
+      } else {
+        // survey the command and issue the correct order
+        players[i]->issueOrder(cmd->getCommand());
+      }
+      
+    }
+  }
+}
+
+void GameEngine::executeOrdersPhase() {
+  cout << "\n\n----------------Execution phase-----------------\n";
+  
+
+  int emptyOrderListPlayersCount = 0;
+  while (emptyOrderListPlayersCount != getPlayerCount()) {
+    for (int i = 0; i < getPlayerCount(); i++) {
+      if (!players[i]->getOrders()->getOrders()->empty()) {
+        // execute the first order
+        Order* order = players[i]->getOrders()->getOrders()->front();
+        order->execute();
+        
+        // print the execution effect
+        cout << players[i]->getId() << "-" << players[i]->getName() << ": " 
+          << order->getOrderType() << " -> " << order->getOrderEffect() << "\n";
+
+        players[i]->getOrders()->remove(0);
+      }
+    }
+
+    // find the number of players whose orders lists are empty
+    emptyOrderListPlayersCount = 0;
+    for (int i = 0; i < getPlayerCount(); i++) {
+      if (players[i]->getOrders()->getOrders()->empty()) {
+        emptyOrderListPlayersCount++;
+      }
+    }
+  }
+
+  for (int i = 0; i < getPlayerCount(); i++) {
+    // reward cards to player who has captured at least one territory
+    if (players[i]->getConqueredThisTurn() && deck->size() > 0) {
+      players[i]->getHand()->cards->push_back(&players[i]->getDeck()->draw());
+    }
+
+    // reset the attributes of this turn for player
+    players[i]->setConqueredThisTurn(false);
+    players[i]->clearNegotiatedPlayers();
+  }
+  
+}
+
 
 // overloading << to print the current state
 ostream &operator<<(ostream &os, const GameEngine &gameEngine) {

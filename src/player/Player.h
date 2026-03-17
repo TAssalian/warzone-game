@@ -9,6 +9,10 @@ class Deck;
 class Hand;
 class OrderList;
 class Player;
+class MapLoader;
+class GameEngine;
+
+using std::string;
 
 class Player {
 private:
@@ -30,6 +34,7 @@ public:
   Player &operator=(const Player &other);
   ~Player();
 
+
   friend std::ostream &operator<<(std::ostream &os, const Player &p);
 
   std::string getName() const;
@@ -40,7 +45,9 @@ public:
   int getReinforcementPool() const;
   bool getConqueredThisTurn() const;
   const std::vector<Player *> &getNegotiatedPlayers() const;
+  Deck* getDeck();
 
+  void setId(int id);
   void setReinforcementPool(int pool);
   void setConqueredThisTurn(bool conquered);
   void addNegotiatedPlayer(Player *player);
@@ -50,8 +57,12 @@ public:
   void addTerritory(Territory *territory);
   void removeTerritory(Territory *territory);
 
+
   std::vector<Territory *> toDefend() const;
   std::vector<Territory *> toAttack() const;
 
-  void issueOrder();
+  void issueOrder(string input);
+
+  static MapLoader* mapLoader;
+  static GameEngine* gameEngine;
 };

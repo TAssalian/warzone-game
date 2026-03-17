@@ -131,9 +131,9 @@ std::ostream &operator<<(std::ostream &os, const Deck &deck) {
 Hand::Hand(Deck *deck) {
   cards = new std::vector<Card *>();
   // Fill the hand with cards from the deck
-  for (int i = 0; i < handSize; i++) {
-    cards->push_back(&deck->draw());
-  }
+  // for (int i = 0; i < handSize; i++) {
+  //   cards->push_back(&deck->draw());
+  // }
 }
 
 Hand::Hand(const Hand &other) {

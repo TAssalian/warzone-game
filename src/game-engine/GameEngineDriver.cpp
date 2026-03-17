@@ -97,9 +97,20 @@ int run_game_engine_startup_phase_test(int argc, char* argv[]) {
     return 0;
 }
 
+int run_game_engine_gameMainLoop(int argc, char* argv[]) {
+    cout << "GAME ENGINE STARTUP PHASE DRIVER" << endl;
+
+    // Call startup phase method
+    GameEngine* gameEngine = new GameEngine();
+    gameEngine->startupPhase(argc, argv);
+
+    return 0;
+}
+
 int main(int argc, char* argv[]) {
 
   //run_game_engine_driver();
-  run_game_engine_startup_phase_test(argc, argv);
+  // run_game_engine_startup_phase_test(argc, argv);
+  run_game_engine_gameMainLoop(argc, argv);
   return 0;
 }

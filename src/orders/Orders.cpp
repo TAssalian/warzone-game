@@ -1,7 +1,10 @@
 #include "Orders.h"
 #include "../cards/Cards.h"
+#include "../player/Player.h"
 #include <algorithm>
 using namespace std;
+
+GameEngine* Order::gameEngine = nullptr;
 
 //-------------ORDER IMPLEMENTATION--------------//
 // Default Constructor
@@ -97,8 +100,10 @@ bool DeployOrder::validate() {
     return false;
   }
 
+  return true;
+
   // Check if the target territory belongs to the player that issued the order
-  const vector<Territory *> &playerTerritories = issuer->getTerritories();
+  const vector<Territory *> playerTerritories = issuer->getTerritories();
   for (Territory *territory : playerTerritories) {
     if (territory == targetTerritory) {
       if (issuer->getReinforcementPool() < numArmies) {
@@ -118,11 +123,12 @@ bool DeployOrder::validate() {
 
 bool DeployOrder::execute() {
   if (validate()) {
+
     // Add armies to the target territory
-    targetTerritory->setArmiesNum(*(targetTerritory->getArmiesNum()) +
+    targetTerritory->setArmiesNum(targetTerritory->getArmiesNum() +
                                   numArmies);
     // Deduct from reinforcement pool
-    issuer->setReinforcementPool(issuer->getReinforcementPool() - numArmies);
+    // issuer->setReinforcementPool(issuer->getReinforcementPool() - numArmies);
     setIsExecuted(true);
     setEffect("Deployed " + to_string(numArmies) + " armies to " +
               *(targetTerritory->getName()));
@@ -175,7 +181,7 @@ bool AdvanceOrder::validate() {
   }
 
   // Check if the source territory belongs to the player that issued the order
-  const vector<Territory *> &playerTerritories = issuer->getTerritories();
+  const vector<Territory *> playerTerritories = issuer->getTerritories();
   bool sourceOwned = false;
   for (Territory *territory : playerTerritories) {
     if (territory == source) {
@@ -199,6 +205,13 @@ bool AdvanceOrder::validate() {
     }
   }
 
+  //Check if the source territory has at least numArmies armies and numArmies is higher than 0
+  if (numArmies > source->getArmiesNum() || numArmies < 0) {
+    setIsExecuted(false);
+    setEffect("Advance order validation failed. Issued armiesNum should be between 1 to sourceTerritory armiesNum");
+    return false;
+  }
+
   // Check if the target territory is adjacent to the source territory
   vector<int *> *neighbourIds = source->getNeighborsIds();
   for (int *neighbourId : *neighbourIds) {
@@ -209,6 +222,7 @@ bool AdvanceOrder::validate() {
   setIsExecuted(false);
   setEffect("Advance order validation failed. Target territory is not adjacent "
             "to source territory.");
+
   return false;
 }
 
@@ -216,8 +230,8 @@ bool AdvanceOrder::execute() {
   if (validate()) {
     // If the target is owned by the same player, just move armies
     if (*(target->playerId) == *(source->playerId)) {
-      source->setArmiesNum(*(source->getArmiesNum()) - numArmies);
-      target->setArmiesNum(*(target->getArmiesNum()) + numArmies);
+      source->setArmiesNum(source->getArmiesNum() - numArmies);
+      target->setArmiesNum(target->getArmiesNum() + numArmies);
       setIsExecuted(true);
       setEffect("Moved " + to_string(numArmies) + " armies from " +
                 *(source->getName()) + " to " + *(target->getName()));
@@ -234,10 +248,10 @@ bool AdvanceOrder::execute() {
       // ids. For now, trust that NegotiateOrder sets up bidirectional entries.
 
       // Deduct attacking armies from source
-      source->setArmiesNum(*(source->getArmiesNum()) - numArmies);
+      source->setArmiesNum(source->getArmiesNum() - numArmies);
 
       int attackingArmies = numArmies;
-      int defendingArmies = *(target->getArmiesNum());
+      int defendingArmies = target->getArmiesNum();
 
       // Battle simulation
       while (attackingArmies > 0 && defendingArmies > 0) {
@@ -259,6 +273,13 @@ bool AdvanceOrder::execute() {
       } else {
         // Attacker wins — capture territory
         target->setArmiesNum(attackingArmies);
+        
+        // if target player is not neutral, remove the target territory from the players territories list
+        if (*target->playerId != -1) {
+          gameEngine->getPlayers()[*target->playerId]->removeTerritory(target);
+        }  
+        
+        
         *target->playerId = *source->playerId; // transfer ownership
         issuer->addTerritory(target);
         issuer->setConqueredThisTurn(true);
@@ -297,7 +318,7 @@ bool BombOrder::validate() {
   }
 
   // Target must NOT belong to the issuer
-  const vector<Territory *> &playerTerritories = issuer->getTerritories();
+  const vector<Territory *> playerTerritories = issuer->getTerritories();
   for (Territory *territory : playerTerritories) {
     if (territory == target) {
       setIsExecuted(false);
@@ -357,6 +378,17 @@ bool BombOrder::execute() {
   if (validate()) {
     // Halve the number of armies in target territory
     *(target->armiesNum) /= 2;
+
+    // remove the card
+    int i = 0;
+    for (Card *card : *issuer->getHand()->cards) {
+      if (card->type == CardType::Bomb) {
+        issuer->getHand()->playCard(i, *issuer->getDeck());
+        break;
+      }
+      i++;
+    }
+
     setIsExecuted(true);
     setEffect("Bombed " + *(target->getName()) + "successfully.");
     return true;
@@ -405,7 +437,7 @@ bool BlockadeOrder::validate() {
   }
 
   // Target must belong to the player that issued the order
-  const vector<Territory *> &playerTerritories = issuer->getTerritories();
+  const vector<Territory *> playerTerritories = issuer->getTerritories();
   bool targetOwned = false;
   for (Territory *territory : playerTerritories) {
     if (territory == target) {
@@ -425,11 +457,22 @@ bool BlockadeOrder::validate() {
 bool BlockadeOrder::execute() {
   if (validate()) {
     // Double the number of armies (spec says double, not triple)
-    target->setArmiesNum(*(target->getArmiesNum()) * 2);
+    target->setArmiesNum(target->getArmiesNum() * 2);
     // Transfer ownership to Neutral (playerId = -1 represents Neutral)
     *target->playerId = -1;
     // Remove territory from issuer's list
     issuer->removeTerritory(target);
+
+    // remove the card
+    int i = 0;
+    for (Card *card : *issuer->getHand()->cards) {
+      if (card->type == CardType::Blockade) {
+        issuer->getHand()->playCard(i, *issuer->getDeck());
+        break;
+      }
+      i++;
+    }
+
     setIsExecuted(true);
     setEffect("Blockaded territory " + *(target->getName()) +
               ", doubling its armies and transferring to Neutral player.");
@@ -503,15 +546,7 @@ bool AirliftOrder::validate() {
               "card.");
     return false;
   }
-  // Check if the players are in peace
-  for (Player *negotiatedPlayer : issuer->getNegotiatedPlayers()) {
-    if (negotiatedPlayer->getId() == *(target->playerId)) {
-      setIsExecuted(false);
-      setEffect("Airlift order validation failed. Issuer is in peace with "
-                "target player.");
-      return false;
-    }
-  }
+  
   return true;
 }
 
@@ -520,6 +555,17 @@ bool AirliftOrder::execute() {
     // Add armies to the target territory and remove them from source territory
     *(source->armiesNum) -= numArmies;
     *(target->armiesNum) += numArmies;
+
+    // remove the card
+    int i = 0;
+    for (Card *card : *issuer->getHand()->cards) {
+      if (card->type == CardType::Airlift) {
+        issuer->getHand()->playCard(i, *issuer->getDeck());
+        break;
+      }
+      i++;
+    }
+
     setIsExecuted(true);
     setEffect("Airlifted " + to_string(numArmies) + " armies from " +
               *(source->getName()) + " to " + *(target->getName()));
@@ -561,6 +607,7 @@ bool NegotiateOrder::validate() {
         "Negotiate order validation failed. Cannot negotiate with yourself.");
     return false;
   }
+  // check if the issuer has a diplomacy card
   bool hasCard = false;
   for (Card *card : *issuer->getHand()->cards) {
     if (card->type == CardType::Diplomacy) {
@@ -591,6 +638,17 @@ bool NegotiateOrder::execute() {
     // Establish bidirectional peace treaty for the remainder of this turn
     issuer->addNegotiatedPlayer(target);
     target->addNegotiatedPlayer(issuer);
+
+    // remove the card
+    int i = 0;
+    for (Card *card : *issuer->getHand()->cards) {
+      if (card->type == CardType::Diplomacy) {
+        issuer->getHand()->playCard(i, *issuer->getDeck());
+        break;
+      }
+      i++;
+    }
+
     setIsExecuted(true);
     setEffect("Negotiated peace between " + issuer->getName() + " and " +
               target->getName() + ". Neither can attack the other this turn.");

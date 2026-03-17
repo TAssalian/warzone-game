@@ -8,6 +8,7 @@
 #include "../cards/Cards.h"
 
 class Command;
+class CommandProcessor;
 
 using std::string, std::ostream;
 
@@ -83,6 +84,16 @@ public:
 
   // a command-based user interaction to start the game
   int startupPhase(int argc, char* argv[]);
+
+  // main game methods
+  void mainGameLoop(CommandProcessor* processor);
+  void reinforcementPhase();
+  void issueOrdersPhase(CommandProcessor* processor);
+  void executeOrdersPhase();
+
+  // details of the game (such as players, territories, ...)
+  void printGameStats();
+
 
   friend ostream &operator<<(ostream &os, const GameEngine &gameEngine);
 };

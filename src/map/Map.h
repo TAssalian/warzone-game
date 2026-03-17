@@ -44,8 +44,10 @@ public:
 
 	string* getName() const;
 	vector<int*>* getNeighborsIds() const;
-	int* getArmiesNum() const;
+	int getArmiesNum() const;
 	void setArmiesNum(const int armiesNum);
+
+	void setPlayerId(int id);
 
 	friend ostream& operator<<(ostream& os, const Territory& territory);
 };
