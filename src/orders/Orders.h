@@ -4,12 +4,13 @@
 #include "../map/Map.h"
 #include "../player/Player.h"
 #include "../game-engine/GameEngine.h"
+#include "../Observer/LoggingObserver.h"
 #include <iostream>
 #include <string>
 #include <vector>
 
 // Order class implementation
-class Order {
+class Order: public ILoggable, public Subject {
 
 protected:
   std::string orderType;
@@ -38,6 +39,7 @@ public:
   virtual bool execute();
 
   static GameEngine* gameEngine;
+  std::string stringToLog() const override;
 };
 
 class DeployOrder : public Order {
@@ -171,7 +173,7 @@ public:
   bool execute() override;
 };
 
-class OrderList {
+class OrderList: public ILoggable, public Subject {
 private:
   vector<Order *> *orders;
 
@@ -189,6 +191,8 @@ public:
   void addOrder(Order *order);
   void move(int currentIndex, int newIndex);
   void remove(int index);
+
+  std::string stringToLog() const override;
 
   friend ostream &operator<<(ostream &os, const OrderList &ol);
 };

@@ -1,6 +1,7 @@
 #include "Orders.h"
 #include "../cards/Cards.h"
 #include "../player/Player.h"
+#include "../Observer/LoggingObserver.h"
 #include <algorithm>
 using namespace std;
 
@@ -48,10 +49,12 @@ bool Order::execute() {
   if (validate()) {
     setIsExecuted(true);
     setEffect("Order has been executed.");
+    notify(this); // Notify observers of the state change
     return true;
   } else {
     setIsExecuted(false);
     setEffect("Order validation failed. Order has not been executed.");
+    notify(this); // Notify observers of the state change
     return false;
   }
 }
@@ -106,6 +109,7 @@ bool DeployOrder::validate() {
   const vector<Territory *> playerTerritories = issuer->getTerritories();
   for (Territory *territory : playerTerritories) {
     if (territory == targetTerritory) {
+      // Check if the player has enough armies in the reinforcement pool
       if (issuer->getReinforcementPool() < numArmies) {
         setIsExecuted(false);
         setEffect("Deploy order validation failed. Not enough armies in the "
@@ -132,6 +136,7 @@ bool DeployOrder::execute() {
     setIsExecuted(true);
     setEffect("Deployed " + to_string(numArmies) + " armies to " +
               *(targetTerritory->getName()));
+    notify(this); // Notify observers of the state change
     return true;
   }
   return false;
@@ -235,19 +240,8 @@ bool AdvanceOrder::execute() {
       setIsExecuted(true);
       setEffect("Moved " + to_string(numArmies) + " armies from " +
                 *(source->getName()) + " to " + *(target->getName()));
+      notify(this); // Notify observers of the state change
     } else {
-      // Check if there is a negotiate peace treaty in effect
-      // Find the defender player by scanning issuer's negotiated list
-      if (issuer->isNegotiatedWith(nullptr)) {
-        // placeholder; real check is done per-player below
-      }
-      // We can't directly look up the Player* from playerId here without a
-      // game-level registry, so we track negotiation on the issuer side.
-      // The NegotiateOrder::execute() stores the target Player* on issuer.
-      // Advanced check: compare target->playerId against negotiated players'
-      // ids. For now, trust that NegotiateOrder sets up bidirectional entries.
-
-      // Deduct attacking armies from source
       source->setArmiesNum(source->getArmiesNum() - numArmies);
 
       int attackingArmies = numArmies;
@@ -270,6 +264,7 @@ bool AdvanceOrder::execute() {
         target->setArmiesNum(defendingArmies);
         setIsExecuted(true);
         setEffect("Attacked " + *(target->getName()) + " and lost.");
+        notify(this); // Notify observers of the state change
       } else {
         // Attacker wins — capture territory
         target->setArmiesNum(attackingArmies);
@@ -285,6 +280,7 @@ bool AdvanceOrder::execute() {
         issuer->setConqueredThisTurn(true);
         setIsExecuted(true);
         setEffect("Attacked " + *(target->getName()) + " and conquered it.");
+        notify(this); // Notify observers of the state change
       }
     }
     return true;
@@ -348,7 +344,7 @@ bool BombOrder::validate() {
       }
     }
   }
-
+  //Check if territories are adjacent
   if (!isAdjacent) {
     setIsExecuted(false);
     setEffect("Bomb order validation failed. Target territory is not adjacent "
@@ -391,6 +387,7 @@ bool BombOrder::execute() {
 
     setIsExecuted(true);
     setEffect("Bombed " + *(target->getName()) + "successfully.");
+    notify(this); // Notify observers of the state change
     return true;
   }
   return false;
@@ -476,6 +473,7 @@ bool BlockadeOrder::execute() {
     setIsExecuted(true);
     setEffect("Blockaded territory " + *(target->getName()) +
               ", doubling its armies and transferring to Neutral player.");
+    notify(this); // Notify observers of the state change
     return true;
   }
   return false;
@@ -520,6 +518,7 @@ bool AirliftOrder::validate() {
     return false;
   }
 
+  // Check if the source and target territories belong to the player that issued
   if (*(source->playerId) != issuer->getId()) {
     setIsExecuted(false);
     setEffect("Airlift order validation failed. Source territory does not "
@@ -533,6 +532,7 @@ bool AirliftOrder::validate() {
     return false;
   }
 
+  //Check if the player has an Airlift card
   bool hasCard = false;
   for (Card *card : *issuer->getHand()->cards) {
     if (card->type == CardType::Airlift) {
@@ -569,6 +569,7 @@ bool AirliftOrder::execute() {
     setIsExecuted(true);
     setEffect("Airlifted " + to_string(numArmies) + " armies from " +
               *(source->getName()) + " to " + *(target->getName()));
+    notify(this); // Notify observers of the state change
     return true;
   }
   return false;
@@ -607,7 +608,8 @@ bool NegotiateOrder::validate() {
         "Negotiate order validation failed. Cannot negotiate with yourself.");
     return false;
   }
-  // check if the issuer has a diplomacy card
+
+  // Check if the player has a Diplomacy card
   bool hasCard = false;
   for (Card *card : *issuer->getHand()->cards) {
     if (card->type == CardType::Diplomacy) {
@@ -652,10 +654,13 @@ bool NegotiateOrder::execute() {
     setIsExecuted(true);
     setEffect("Negotiated peace between " + issuer->getName() + " and " +
               target->getName() + ". Neither can attack the other this turn.");
+    notify(this); // Notify observers of the state change
+	
     return true;
   }
   return false;
 }
+
 
 //-------------ORDERLIST IMPLEMENTATION--------------//
 // Default Constructor
@@ -699,7 +704,20 @@ vector<Order *> *OrderList::getOrders() const { return orders; }
 
 // Methods
 
-void OrderList::addOrder(Order *order) { orders->push_back(order); }
+void OrderList::addOrder(Order *order) 
+{ 
+    orders->push_back(order);
+	notify(this); // Notify observers that a new order has been added
+}
+
+std::string Order::stringToLog() const {
+    return "Order::execute(): [" + orderType + "] | Effect: [" + orderEffect + "]";
+}
+
+std::string OrderList::stringToLog() const {
+    if (orders->empty()) return "OrderList: No orders added yet.";
+    return "OrderList::addOrder(): [" + orders->back()->getOrderType() + "]";
+}
 
 void OrderList::move(int currentIndex, int newIndex) {
   if (currentIndex < newIndex) {
@@ -730,3 +748,5 @@ std::ostream &operator<<(std::ostream &os, const OrderList &orderList) {
     return os;
   }
 }
+
+

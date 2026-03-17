@@ -1,5 +1,6 @@
 #include "GameEngine.h"
 #include "CommandProcessing.h"
+#include "../Observer/LoggingObserver.h"
 
 #include <iostream>
 #include <sstream>
@@ -77,6 +78,11 @@ GameEngine::GameEngine() {
   currentState = new GameState(GameState::START);
   command = new string("");
   deck = new Deck();
+  mapLoader = nullptr;
+
+  for (int i = 0; i < 6; i++) {
+    players[i] = nullptr;
+  }
 }
 // copy
 GameEngine::GameEngine(const GameEngine &other) {
@@ -245,6 +251,7 @@ bool GameEngine::transition(const string &cmd) {
     return false;
   }
   setCurrentState(mutableCmd);
+  notify(this); // Notify observers of the state change
   return true;
 }
 
@@ -267,51 +274,52 @@ bool GameEngine::transition(Command *cmd) {
   const string commandName = extractCommandName(text);
 
   if (commandName == "gamestart") {
+    Map* map = mapLoader->map;
+    std::vector<Territory*> territories(*map->territories);
+    
+    int territoryCount = map->territories->size();
+    int playerCount = getPlayerCount();
 
-      Map* map = mapLoader->map;
-      std::vector<Territory*> territories(*map->territories);
-      
-      int territoryCount = map->territories->size();
-      int playerCount = getPlayerCount();
+    if (playerCount <= 0) return false;
 
-      if (playerCount <= 0) return false;
+    // --- Step 1: Determine randomly the order of player for players in the game. ---
+    // We can do this by shuffling the player array and whoever's in position 0 will go first
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(std::begin(players), std::begin(players) + playerCount, g);
 
-      // --- Step 1: Determine randomly the order of player for players in the game. ---
-      // We can do this by shuffling the player array and whoever's in position 0 will go first
-      std::random_device rd;
-      std::mt19937 g(rd());
-      std::shuffle(std::begin(players), std::begin(players) + playerCount, g);
-
-      // shuffle territories too
-      std::shuffle(std::begin(territories), std::end(territories), g);
+    // shuffle territories too
+    std::shuffle(std::begin(territories), std::end(territories), g);
 
 
-      // --- Step 2: Distribute territories evenly to players. ---
-      // Distribute them to each player one at a time
-      for (int i = 0; i < territories.size(); ++i) {
-          int playerIndex = i % playerCount;
-          players[playerIndex]->setId(playerIndex);
-          players[playerIndex]->addTerritory(territories.at(i));
-          *territories.at(i)->playerId = playerIndex;
-      }
+    // --- Step 2: Distribute territories evenly to players. ---
+    // Distribute them to each player one at a time
+    for (int i = 0; i < territories.size(); ++i) {
+        int playerIndex = i % playerCount;
+        players[playerIndex]->setId(playerIndex);
+        players[playerIndex]->addTerritory(territories.at(i));
+        *territories.at(i)->playerId = playerIndex;
+    }
 
-      // --- Step 3: Distribute 50 initial armies, placed in reinforcement pool ---
-      //                        AND
-      // --- Step 4: Let each player draw 2 initial cards from the deck
-      for (Player* player : players) {
-          if (player == nullptr) continue;
-          player->setReinforcementPool(50);
-          player->getHand()->drawFromDeckMultiple(2, deck);
-      }
+    // --- Step 3: Distribute 50 initial armies, placed in reinforcement pool ---
+    //                        AND
+    // --- Step 4: Let each player draw 2 initial cards from the deck
+    for (Player* player : players) {
+        if (player == nullptr) continue;
+        player->setReinforcementPool(50);
+        player->getHand()->drawFromDeckMultiple(2, deck);
+    }
 
-      // --- Step 5: Switch game to play phase ---
-      setCurrentState(text);
-      cmd->saveEffect("game started; entering reinforcement phase");
-      return true;
+    // --- Step 5: Switch game to play phase ---
+    setCurrentState(text);
+    notify(this); // Notify observers of the state change
+    cmd->saveEffect("game started; entering reinforcement phase");
+    return true;
   }
 
   // if (commandName == "issueorders") {
   //   setCurrentState(text);
+  //   notify(this); // Notify observers of the state change
   //   cmd->saveEffect("reinforcements assigned; entering issue orders phase");
   //   return true;
   // }
@@ -323,77 +331,85 @@ bool GameEngine::transition(Command *cmd) {
   }
 
   // if (commandName == "endissueorders") {
+  //   notify(this); // Notify observers of the state change
   //   cmd->saveEffect("all orders issued; entering execute orders phase");
   //   return true;
   // }
 
   if (commandName == "execorder") {
     setCurrentState(text);
+    notify(this); // Notify observers of the state change
     cmd->saveEffect("order executed");
     return true;
   }
 
   if (commandName == "win") {
     setCurrentState(text);
+    notify(this); // Notify observers of the state change
     cmd->saveEffect("game won");
     return true;
   }
 
   if (commandName == "replay") {
     setCurrentState(text);
+    notify(this); // Notify observers of the state change
     cmd->saveEffect("replay selected");
     return true;
   }
 
   if (commandName == "quit") {
     setCurrentState(text);
+    notify(this); // Notify observers of the state change
     cmd->saveEffect("quit selected");
     return true;
   }
 
   if (commandName == "addplayer") {
-      string name = extractCommandTokens(text)[1];
-      addPlayer(name);
-      setCurrentState(text);
-      cmd->saveEffect("added player " + name);
-      return true;
+    string name = extractCommandTokens(text)[1];
+    addPlayer(name);
+    setCurrentState(text);
+    notify(this); // Notify observers of the state change
+    cmd->saveEffect("added player " + name);
+    return true;
   }
 
   if (commandName == "loadmap") {
-      // Make sure map name is in format without the .map extension
-      string mapName = extractCommandTokens(text)[1];
-      int dotPos = mapName.find(".map");
-      if (dotPos) {
-          mapName = mapName.substr(0, dotPos);
-      }
-      string file = "./data/maps/" + mapName + ".map";
-      
-      if (mapLoader != nullptr){
-          delete mapLoader;
-      }
-      mapLoader = new MapLoader(file);
+    // Make sure map name is in format without the .map extension
+    string mapName = extractCommandTokens(text)[1];
+    int dotPos = mapName.find(".map");
+    if (dotPos) {
+        mapName = mapName.substr(0, dotPos);
+    }
+    string file = "./data/maps/" + mapName + ".map";
+    
+    if (mapLoader != nullptr){
+        delete mapLoader;
+    }
+    mapLoader = new MapLoader(file);
 
-      setCurrentState(text);
-      cmd->saveEffect("loaded file " + file);
-      return true;
+    setCurrentState(text);
+    notify(this); // Notify observers of the state change
+    cmd->saveEffect("loaded file " + file);
+    return true;
   }
 
   if (commandName == "validatemap") {
 
-      if (mapLoader == nullptr) {
-          return false;
-      }
+    if (mapLoader == nullptr) {
+        return false;
+    }
 
-      if (mapLoader->isValid()) {
-          setCurrentState(text);
-          cmd->saveEffect("The map is valid.");
-      }
-      else {
-          setCurrentState("start");
-          cmd->saveEffect("The map could not be validated, please use a different map. Error: " + string(mapLoader->getErrMsg()));
-      }
+    if (mapLoader->isValid()) {
+        setCurrentState(text);
+        cmd->saveEffect("The map is valid.");
+    }
+    else {
+        setCurrentState("start");
+        cmd->saveEffect("The map could not be validated, please use a different map. Error: " + string(mapLoader->getErrMsg()));
+    }
 
-      return true;
+    notify(this); // Notify observers of the state change
+    return true;
   }
 }
 
@@ -554,7 +570,23 @@ void GameEngine::mainGameLoop(CommandProcessor* processor) {
       if (players[i]->getTerritories().size() == mapLoader->getTerritoriesNum()) {
         setCurrentState("win");
 
-        cout << "-------- Congratulations: player " << i << "-" << players[i]->getName() << " won!!! ----------\n\n";
+        cout << "\n\n-------- Congratulations: player " << i << "-" << players[i]->getName() << " won!!! ----------\n\n";
+        
+        // show the valid commands
+        cout << "Valid commands: Win -> replay - quit\n";
+
+        // reset the gameengine
+        delete command;
+        delete deck;
+        delete mapLoader;
+        command = new string("");
+        deck = new Deck();
+        mapLoader = nullptr;
+
+        for (int i = 0; i < 6; i++) {
+          if (players[i] != nullptr) delete players[i];
+          players[i] = nullptr;
+        }
       }
     }
   }
@@ -706,4 +738,9 @@ void GameEngine::executeOrdersPhase() {
 ostream &operator<<(ostream &os, const GameEngine &gameEngine) {
   os << "Current state: " << gameEngine.getCurrentStateName();
   return os;
+}
+
+//logging string for GameEngine
+std::string GameEngine::stringToLog() const {
+    return "GameEngine::transition() [" + getCurrentStateName() + "]";
 }

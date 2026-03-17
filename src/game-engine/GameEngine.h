@@ -1,5 +1,5 @@
 #pragma once
-
+#include "../Observer/LoggingObserver.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -38,7 +38,7 @@ static const string GameStateNames[] = {
 
 GameState stringToGameState(const std::string &str);
 
-class GameEngine {
+class GameEngine: public ILoggable, public Subject {
 
 private:
   GameState *currentState;
@@ -94,6 +94,7 @@ public:
   // details of the game (such as players, territories, ...)
   void printGameStats();
 
+  string stringToLog() const override;
 
   friend ostream &operator<<(ostream &os, const GameEngine &gameEngine);
 };

@@ -1,5 +1,5 @@
 #pragma once
-
+#include "../Observer/LoggingObserver.h"
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -7,7 +7,7 @@
 
 class GameEngine;
 
-class Command {
+class Command: public ILoggable, public Subject {
 private:
   std::string *commandText; // The command string entered by the user
   std::string *effect;      // Effect/result message saved after execution
@@ -22,12 +22,14 @@ public:
   void saveEffect(const std::string &eff);
   std::string getEffect() const;
 
+  std::string stringToLog() const override;
+
   friend std::ostream &operator<<(std::ostream &os, const Command &cmd);
 };
 
 
 // Reads commands from the console, stores them, and validates each command against the current GameEngine state.
-class CommandProcessor {
+class CommandProcessor: public ILoggable, public Subject {
 private:
   GameEngine *engine;               // Pointer to the game engine
   virtual Command *readCommand();
@@ -47,6 +49,9 @@ public:
   // Validates whether cmd is legal in the current game state.
   // If invalid, saves an error message as the command's effect.
   bool validate(Command *cmd);
+
+
+  std::string stringToLog() const override;
 
   friend std::ostream &operator<<(std::ostream &os, const CommandProcessor &cp);
 };
