@@ -11,6 +11,7 @@ class OrderList;
 class Player;
 class MapLoader;
 class GameEngine;
+class PlayerStrategy;
 
 using std::string;
 
@@ -27,13 +28,13 @@ private:
   int reinforcementPool;
   bool conqueredThisTurn;
   std::vector<Player *> negotiatedPlayers;
+  PlayerStrategy *strategy;
 
 public:
   Player(std::string name, Deck *deck);
   Player(const Player &other);
   Player &operator=(const Player &other);
   ~Player();
-
 
   friend std::ostream &operator<<(std::ostream &os, const Player &p);
 
@@ -45,7 +46,9 @@ public:
   int getReinforcementPool() const;
   bool getConqueredThisTurn() const;
   const std::vector<Player *> &getNegotiatedPlayers() const;
-  Deck* getDeck();
+  Deck *getDeck();
+  PlayerStrategy *getStrategy() const;
+  void setStrategy(PlayerStrategy *strategy);
 
   void setId(int id);
   void setReinforcementPool(int pool);
@@ -57,12 +60,11 @@ public:
   void addTerritory(Territory *territory);
   void removeTerritory(Territory *territory);
 
-
   std::vector<Territory *> toDefend() const;
   std::vector<Territory *> toAttack() const;
 
   void issueOrder(string input);
 
-  static MapLoader* mapLoader;
-  static GameEngine* gameEngine;
+  static MapLoader *mapLoader;
+  static GameEngine *gameEngine;
 };
