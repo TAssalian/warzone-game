@@ -265,7 +265,19 @@ string CheaterPlayerStrategy::getStrategyName() const { return "Cheater"; }
 
 vector<Territory *> CheaterPlayerStrategy::toDefend(const Player *player) const {
 // Does nothing. 
-    vector <Territory*> list;
+    vector<Territory*> list;
+
+    for (Territory* playerTerritory : player->getTerritories()) {
+        int playerTerrID = *playerTerritory->id;
+
+        for (auto territoryID : *player->mapLoader->getTerritoryNeighborsIds(playerTerrID)) {
+            // If the neighbouring territory belongs to the player, add the player territory to list
+            if (player->mapLoader->getTerritoryPlayerId(*territoryID) != player->getId()) {
+                list.push_back(playerTerritory);
+            }
+        }
+    }
+
     return list;
 }
 
@@ -292,58 +304,18 @@ void CheaterPlayerStrategy::issueOrder(Player * player) {
 // Note that no defending happens with this strategy.
 
     vector<Territory*> attackTerritories = toAttack(player);
+    vector<Territory*> defendTerritories = toDefend(player);
 
     if (attackTerritories.empty())
         return;
 
-    Territory* startingTerritory = attackTerritories[0];
+    if (defendTerritories.empty())
+        return;
 
-  // Advance order: attack from strongest territory to every adjacent enemy
-  // territory
-    //vector<Territory*> enemyNeighbors;
-    //for (int* neighborId : *startingTerritory->getNeighborsIds()) {
-
-    //    Territory* neighbor = nullptr;
-    //    for (Territory* t : *player->mapLoader->map->territories) {
-    //        if (*t->id == *neighborId) {
-    //            neighbor = t;
-    //            break;
-    //        }
-    //    }
-    //    if (neighbor && neighbor->getPlayerId() != player->getId()) {
-    //      enemyNeighbors.push_back(neighbor);
-    //    }
-    //}
-
-    //int totalArmies =
-    //    startingTerritory->getArmiesNum() + player->getReinforcementPool();
-
-    //if (totalArmies == 0) return;
-
-    //if (enemyNeighbors.empty()) {
-    //    vector<Territory*> friendlyNeighbors;
-    //    for (int* neighborId : *startingTerritory->getNeighborsIds()) {
-    //        Territory* neighbor = (*player->mapLoader->map->territories)[*neighborId - 1];
-    //        if (neighbor->getPlayerId() == player->getId()) {
-    //          friendlyNeighbors.push_back(neighbor);
-    //        }
-    //    }
-    //    if (!friendlyNeighbors.empty()) {
-    //        player->getOrders()->addOrder(new AdvanceOrder(
-    //            player, totalArmies, strongestTerritory, friendlyNeighbors[0]));
-    //    }
-    //    return;
-    //}
-    //int armiesPerTarget = totalArmies / enemyNeighbors.size();
-    //int remainder = totalArmies % enemyNeighbors.size();
-
-    //for (size_t i = 0; i < enemyNeighbors.size(); i++) {
-    //    int armies = armiesPerTarget + (i == 0 ? remainder : 0);
-    //    if (armies > 0) {
-    //        player->getOrders()->addOrder(new AdvanceOrder(
-    //            player, armies, strongestTerritory, enemyNeighbors[i]));
-    //    }
-    //}
-
-    // do smth
+    for (int i = 0; i < attackTerritories.size(); i++) {
+        int totalArmies = defendTerritories[i]->getArmiesNum() + player->getReinforcementPool();
+        // Cheats are on, so in AdvanceOrder it will bypass to auto conquering (see AdvanceOrder::execute)
+        player->getOrders()->addOrder(new AdvanceOrder(
+            player, totalArmies, defendTerritories[i], attackTerritories[i], true));
+    }
 }
