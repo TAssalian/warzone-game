@@ -28,31 +28,32 @@ std::ostream &operator<<(std::ostream &os, const PlayerStrategy &ps) {
 string HumanPlayerStrategy::getStrategyName() const { return "Human"; }
 
 vector<Territory *> HumanPlayerStrategy::toDefend(const Player *player) const {
-    return player->getTerritories();
+  return player->getTerritories();
 }
 
 vector<Territory *> HumanPlayerStrategy::toAttack(const Player *player) const {
-    int territoriesN = player->mapLoader->getTerritoriesNum();
-    vector<bool> arr(territoriesN, false);
-    for (auto territory : player->getTerritories()) {
-        int territoryId_a = *territory->id;
-        for (auto territoryId_b :
-            *player->mapLoader->getTerritoryNeighborsIds(territoryId_a)) {
-            if (player->mapLoader->getTerritoryPlayerId(*territoryId_b) != player->getId()) {
-                arr[*territoryId_b] = true;
-            }
-        }
+  int territoriesN = player->mapLoader->getTerritoriesNum();
+  vector<bool> arr(territoriesN, false);
+  for (auto territory : player->getTerritories()) {
+    int territoryId_a = *territory->id;
+    for (auto territoryId_b :
+         *player->mapLoader->getTerritoryNeighborsIds(territoryId_a)) {
+      if (player->mapLoader->getTerritoryPlayerId(*territoryId_b) !=
+          player->getId()) {
+        arr[*territoryId_b] = true;
+      }
     }
+  }
 
-    vector<Territory*> list;
+  vector<Territory *> list;
 
-    for (int i = 0; i < territoriesN; i++) {
-        if (arr[i]) {
-            list.push_back((*player->mapLoader->map->territories)[i]);
-        }
+  for (int i = 0; i < territoriesN; i++) {
+    if (arr[i]) {
+      list.push_back((*player->mapLoader->map->territories)[i]);
     }
+  }
 
-    return list;
+  return list;
 }
 
 void HumanPlayerStrategy::issueOrder(Player *player) {
@@ -98,11 +99,12 @@ void HumanPlayerStrategy::issueOrder(Player *player) {
 //  AggressivePlayerStrategy
 // ============================================================
 string AggressivePlayerStrategy::getStrategyName() const {
-return "Aggressive";
+  return "Aggressive";
 }
 
-vector<Territory *> AggressivePlayerStrategy::toDefend(const Player *player) const {
-  vector<Territory *> defendTerritories = player->toDefend();
+vector<Territory *>
+AggressivePlayerStrategy::toDefend(const Player *player) const {
+  vector<Territory *> defendTerritories = player->getTerritories();
   sort(defendTerritories.begin(), defendTerritories.end(),
        [](Territory *a, Territory *b) {
          return a->getArmiesNum() > b->getArmiesNum();
@@ -110,15 +112,16 @@ vector<Territory *> AggressivePlayerStrategy::toDefend(const Player *player) con
   return defendTerritories;
 }
 
-vector<Territory *> AggressivePlayerStrategy::toAttack(const Player *player) const {
+vector<Territory *>
+AggressivePlayerStrategy::toAttack(const Player *player) const {
   vector<Territory *> defendTerritories = player->toDefend();
+  Territory *strongestTerritory = defendTerritories[0];
   vector<Territory *> attackTerritories;
-  for (Territory *t : defendTerritories) {
-    for (int *neighborId : *t->getNeighborsIds()) {
-      Territory *neighbor = (*player->mapLoader->map->territories)[*neighborId - 1];
-      if (neighbor->getPlayerId() != player->getId()) {
-        attackTerritories.push_back(neighbor);
-      }
+  for (int *neighborId : *strongestTerritory->getNeighborsIds()) {
+    if (player->mapLoader->getTerritoryPlayerId(*neighborId) !=
+        player->getId()) {
+      attackTerritories.push_back(
+          (*player->mapLoader->map->territories)[*neighborId]);
     }
   }
   return attackTerritories;
@@ -130,110 +133,77 @@ void AggressivePlayerStrategy::issueOrder(Player *player) {
 
   if (defendTerritories.empty())
     return;
+  if (attackTerritories.empty())
+    return;
 
   Territory *strongestTerritory = defendTerritories[0];
 
   // Deploy order: deploy to strongest territory
   player->getOrders()->addOrder(new DeployOrder(
       player, player->getReinforcementPool(), strongestTerritory));
-
   // Advance order: attack from strongest territory to every adjacent enemy
-  // territory
-  vector<Territory *> enemyNeighbors;
-  for (int *neighborId : *strongestTerritory->getNeighborsIds()) {
-    Territory *neighbor = nullptr;
-    for (Territory *t : *player->mapLoader->map->territories) {
-      if (*t->id == *neighborId) {
-        neighbor = t;
-        break;
-      }
-    }
-    //if (neighbor && neighbor->getPlayerId() != player->getId()) {
-    //  enemyNeighbors.push_back(neighbor);
-    //}
-  }
+  int numOfAttackTerritories = attackTerritories.size();
+  int armiesToAdvance =
+      strongestTerritory->getArmiesNum() / numOfAttackTerritories;
 
-  int totalArmies =
-      strongestTerritory->getArmiesNum() + player->getReinforcementPool();
-
-  if (totalArmies == 0) return;
-
-  if (enemyNeighbors.empty()) {
-    vector<Territory*> friendlyNeighbors;
-    for (int *neighborId : *strongestTerritory->getNeighborsIds()) {
-      Territory *neighbor = (*player->mapLoader->map->territories)[*neighborId - 1];
-      //if (neighbor->getPlayerId() == player->getId()) {
-      //  friendlyNeighbors.push_back(neighbor);
-      //}
-    }
-    if (!friendlyNeighbors.empty()) {
-      player->getOrders()->addOrder(new AdvanceOrder(
-          player, totalArmies, strongestTerritory, friendlyNeighbors[0]));
-    }
-    return;
-  }
-  int armiesPerTarget = totalArmies / enemyNeighbors.size();
-  int remainder = totalArmies % enemyNeighbors.size();
-
-  for (size_t i = 0; i < enemyNeighbors.size(); i++) {
-    int armies = armiesPerTarget + (i == 0 ? remainder : 0);
-    if (armies > 0) {
-      player->getOrders()->addOrder(new AdvanceOrder(
-          player, armies, strongestTerritory, enemyNeighbors[i]));
-    }
+  for (Territory *territory : attackTerritories) {
+    player->getOrders()->addOrder(new AdvanceOrder(
+        player, armiesToAdvance, strongestTerritory, territory));
   }
 }
 
 // ============================================================
 //  BenevolentPlayerStrategy
 // ============================================================
-// Computer player that focuses on protecting its weakest country (deploys or advances armies
-// on its weakest country, never advances to enemy territories).
+// Computer player that focuses on protecting its weakest country (deploys or
+// advances armies on its weakest country, never advances to enemy territories).
 
 string BenevolentPlayerStrategy::getStrategyName() const {
   return "Benevolent";
 }
 
-vector<Territory *> BenevolentPlayerStrategy::toDefend(const Player *player) const {
-// Strategy is to deploy or advance armies on weakest country
+vector<Territory *>
+BenevolentPlayerStrategy::toDefend(const Player *player) const {
+  // Strategy is to deploy or advance armies on weakest country
 
-    Territory* weakest = nullptr;
-    int lowestArmyCount = *player->getTerritories()[0]->armiesNum;
+  Territory *weakest = player->getTerritories()[0];
+  int lowestArmyCount = *player->getTerritories()[0]->armiesNum;
 
-    // Determine weakest territory
-    for (Territory* territory : player->getTerritories()) {
-        if (territory->getArmiesNum() < lowestArmyCount) {
-            lowestArmyCount = territory->getArmiesNum();
-            weakest = territory;
-        }
+  // Determine weakest territory
+  for (Territory *territory : player->getTerritories()) {
+    if (territory->getArmiesNum() < lowestArmyCount) {
+      lowestArmyCount = territory->getArmiesNum();
+      weakest = territory;
     }
+  }
 
-    vector <Territory*> list;
-    list.push_back(weakest);
+  vector<Territory *> list;
+  list.push_back(weakest);
 
-    return list;
+  return list;
 }
 
-vector<Territory *> BenevolentPlayerStrategy::toAttack(const Player *player) const {
-// Strategy is to never advance to enemy territories
-// Therefore, we return an empty list.
-    vector <Territory*> list;
-    return list;
+vector<Territory *>
+BenevolentPlayerStrategy::toAttack(const Player *player) const {
+  // Strategy is to never advance to enemy territories
+  // Therefore, we return an empty list.
+  vector<Territory *> list;
+  return list;
 }
 
 void BenevolentPlayerStrategy::issueOrder(Player *player) {
-// Note that there is no attacks needed to be made with this strategy.
+  // Note that there is no attacks needed to be made with this strategy.
 
-    vector<Territory*> defendTerritories = toDefend(player);
+  vector<Territory *> defendTerritories = toDefend(player);
 
-    if (defendTerritories.empty())
-        return;
+  if (defendTerritories.empty())
+    return;
 
-    Territory* weakestTerritory = defendTerritories[0];
+  Territory *weakestTerritory = defendTerritories[0];
 
-    // Deploy order: deploy to strongest territory
-    player->getOrders()->addOrder(new DeployOrder(
-        player, player->getReinforcementPool(), weakestTerritory));
+  // Deploy order: deploy to strongest territory
+  player->getOrders()->addOrder(new DeployOrder(
+      player, player->getReinforcementPool(), weakestTerritory));
 }
 
 // ============================================================
@@ -241,11 +211,13 @@ void BenevolentPlayerStrategy::issueOrder(Player *player) {
 // ============================================================
 string NeutralPlayerStrategy::getStrategyName() const { return "Neutral"; }
 
-vector<Territory *> NeutralPlayerStrategy::toDefend(const Player *player) const {
-  return player->toDefend();
+vector<Territory *>
+NeutralPlayerStrategy::toDefend(const Player *player) const {
+  return player->getTerritories();
 }
 
-vector<Territory *> NeutralPlayerStrategy::toAttack(const Player *player) const {
+vector<Territory *>
+NeutralPlayerStrategy::toAttack(const Player *player) const {
   // Neutral player never attacks
   return {};
 }
@@ -258,64 +230,74 @@ void NeutralPlayerStrategy::issueOrder(Player *player) {
 // ============================================================
 //  CheaterPlayerStrategy
 // ============================================================
-// Computer player that automatically conquers all territories that are adjacent to its own
-// territories (only once per turn).
+// Computer player that automatically conquers all territories that are adjacent
+// to its own territories (only once per turn).
 
 string CheaterPlayerStrategy::getStrategyName() const { return "Cheater"; }
 
-vector<Territory *> CheaterPlayerStrategy::toDefend(const Player *player) const {
-// Does nothing. 
-    vector<Territory*> list;
+vector<Territory *>
+CheaterPlayerStrategy::toDefend(const Player *player) const {
+  // Does nothing.
+  vector<Territory *> list;
 
-    for (Territory* playerTerritory : player->getTerritories()) {
-        int playerTerrID = *playerTerritory->id;
+  for (Territory *playerTerritory : player->getTerritories()) {
+    int playerTerrID = *playerTerritory->id;
 
-        for (auto territoryID : *player->mapLoader->getTerritoryNeighborsIds(playerTerrID)) {
-            // If the neighbouring territory belongs to the player, add the player territory to list
-            if (player->mapLoader->getTerritoryPlayerId(*territoryID) != player->getId()) {
-                list.push_back(playerTerritory);
-            }
-        }
+    for (auto territoryID :
+         *player->mapLoader->getTerritoryNeighborsIds(playerTerrID)) {
+      // If the neighbouring territory belongs to the player, add the player
+      // territory to list
+      if (player->mapLoader->getTerritoryPlayerId(*territoryID) !=
+          player->getId()) {
+        list.push_back(playerTerritory);
+      }
     }
+  }
 
-    return list;
+  return list;
 }
 
-vector<Territory*> CheaterPlayerStrategy::toAttack(const Player* player) const {
-// Will attack all territories adjacent to its own territories.
+vector<Territory *>
+CheaterPlayerStrategy::toAttack(const Player *player) const {
+  // Will attack all territories adjacent to its own territories.
 
-    vector<Territory*> list;
+  vector<Territory *> list;
 
-    for (Territory* playerTerritory : player->getTerritories()) {
-        int playerTerrID = *playerTerritory->id;
+  for (Territory *playerTerritory : player->getTerritories()) {
+    int playerTerrID = *playerTerritory->id;
 
-        for (auto territoryID : *player->mapLoader->getTerritoryNeighborsIds(playerTerrID)) {
-            // If the neighbouring territory does not belong to the player, add to list
-            if (player->mapLoader->getTerritoryPlayerId(*territoryID) != player->getId()) {
-                list.push_back((*player->mapLoader->map->territories)[*territoryID]);
-            }
-        }
+    for (auto territoryID :
+         *player->mapLoader->getTerritoryNeighborsIds(playerTerrID)) {
+      // If the neighbouring territory does not belong to the player, add to
+      // list
+      if (player->mapLoader->getTerritoryPlayerId(*territoryID) !=
+          player->getId()) {
+        list.push_back((*player->mapLoader->map->territories)[*territoryID]);
+      }
     }
+  }
 
-    return list;
+  return list;
 }
 
-void CheaterPlayerStrategy::issueOrder(Player * player) {
-// Note that no defending happens with this strategy.
+void CheaterPlayerStrategy::issueOrder(Player *player) {
+  // Note that no defending happens with this strategy.
 
-    vector<Territory*> attackTerritories = toAttack(player);
-    vector<Territory*> defendTerritories = toDefend(player);
+  vector<Territory *> attackTerritories = toAttack(player);
+  vector<Territory *> defendTerritories = toDefend(player);
 
-    if (attackTerritories.empty())
-        return;
+  if (attackTerritories.empty())
+    return;
 
-    if (defendTerritories.empty())
-        return;
+  if (defendTerritories.empty())
+    return;
 
-    for (int i = 0; i < attackTerritories.size(); i++) {
-        int totalArmies = defendTerritories[i]->getArmiesNum() + player->getReinforcementPool();
-        // Cheats are on, so in AdvanceOrder it will bypass to auto conquering (see AdvanceOrder::execute)
-        player->getOrders()->addOrder(new AdvanceOrder(
-            player, totalArmies, defendTerritories[i], attackTerritories[i], true));
-    }
+  for (int i = 0; i < attackTerritories.size(); i++) {
+    int totalArmies =
+        defendTerritories[i]->getArmiesNum() + player->getReinforcementPool();
+    // Cheats are on, so in AdvanceOrder it will bypass to auto conquering (see
+    // AdvanceOrder::execute)
+    player->getOrders()->addOrder(new AdvanceOrder(
+        player, totalArmies, defendTerritories[i], attackTerritories[i], true));
+  }
 }
