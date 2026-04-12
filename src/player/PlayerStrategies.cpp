@@ -27,15 +27,35 @@ std::ostream &operator<<(std::ostream &os, const PlayerStrategy &ps) {
 // ============================================================
 //string HumanPlayerStrategy::getStrategyName() const { return "Human"; }
 
-vector<Territory *> HumanPlayerStrategy::toDefend(Player *player) {
-  return player->toDefend();
+vector<Territory *> HumanPlayerStrategy::toDefend(const Player *player) const {
+    return player->getTerritories();
 }
 
-vector<Territory *> HumanPlayerStrategy::toAttack(Player *player) {
-  return player->toAttack();
+vector<Territory *> HumanPlayerStrategy::toAttack(const Player *player) const {
+    int territoriesN = player->mapLoader->getTerritoriesNum();
+    vector<bool> arr(territoriesN, false);
+    for (auto territory : player->getTerritories()) {
+        int territoryId_a = *territory->id;
+        for (auto territoryId_b :
+            *player->mapLoader->getTerritoryNeighborsIds(territoryId_a)) {
+            if (player->mapLoader->getTerritoryPlayerId(*territoryId_b) != player->getId()) {
+                arr[*territoryId_b] = true;
+            }
+        }
+    }
+
+    vector<Territory*> list;
+
+    for (int i = 0; i < territoriesN; i++) {
+        if (arr[i]) {
+            list.push_back((*player->mapLoader->map->territories)[i]);
+        }
+    }
+
+    return list;
 }
 
-void HumanPlayerStrategy::issueOrder(Player *player) {
+void HumanPlayerStrategy::issueOrder(const Player *player) {
   cout << "\n--- " << player->getName() << "'s turn (Human) ---" << endl;
   cout << "Reinforcement pool: " << player->getReinforcementPool() << endl;
 
@@ -80,7 +100,7 @@ string AggressivePlayerStrategy::getStrategyName() const {
 return "Aggressive";
 }
 
-vector<Territory *> AggressivePlayerStrategy::toDefend(Player *player) {
+vector<Territory *> AggressivePlayerStrategy::toDefend(const Player *player) const {
   vector<Territory *> defendTerritories = player->toDefend();
   sort(defendTerritories.begin(), defendTerritories.end(),
        [](Territory *a, Territory *b) {
@@ -89,21 +109,21 @@ vector<Territory *> AggressivePlayerStrategy::toDefend(Player *player) {
   return defendTerritories;
 }
 
-vector<Territory *> AggressivePlayerStrategy::toAttack(Player *player) {
+vector<Territory *> AggressivePlayerStrategy::toAttack(const Player *player) const {
   vector<Territory *> defendTerritories = player->toDefend();
   vector<Territory *> attackTerritories;
   for (Territory *t : defendTerritories) {
     for (int *neighborId : *t->getNeighborsIds()) {
       Territory *neighbor = (*player->mapLoader->map->territories)[*neighborId - 1];
-      if (neighbor->getPlayerId() != player->getId()) {
-        attackTerritories.push_back(neighbor);
-      }
+      //if (neighbor->getPlayerId() != player->getId()) {
+      //  attackTerritories.push_back(neighbor);
+      //}
     }
   }
   return attackTerritories;
 }
 
-void AggressivePlayerStrategy::issueOrder(Player *player) {
+void AggressivePlayerStrategy::issueOrder(const Player *player) {
   vector<Territory *> defendTerritories = toDefend(player);
   vector<Territory *> attackTerritories = toAttack(player);
 
@@ -127,9 +147,9 @@ void AggressivePlayerStrategy::issueOrder(Player *player) {
         break;
       }
     }
-    if (neighbor && neighbor->getPlayerId() != player->getId()) {
-      enemyNeighbors.push_back(neighbor);
-    }
+    //if (neighbor && neighbor->getPlayerId() != player->getId()) {
+    //  enemyNeighbors.push_back(neighbor);
+    //}
   }
 
   int totalArmies =
@@ -141,9 +161,9 @@ void AggressivePlayerStrategy::issueOrder(Player *player) {
     vector<Territory*> friendlyNeighbors;
     for (int *neighborId : *strongestTerritory->getNeighborsIds()) {
       Territory *neighbor = (*player->mapLoader->map->territories)[*neighborId - 1];
-      if (neighbor->getPlayerId() == player->getId()) {
-        friendlyNeighbors.push_back(neighbor);
-      }
+      //if (neighbor->getPlayerId() == player->getId()) {
+      //  friendlyNeighbors.push_back(neighbor);
+      //}
     }
     if (!friendlyNeighbors.empty()) {
       player->getOrders()->addOrder(new AdvanceOrder(
@@ -173,7 +193,7 @@ string BenevolentPlayerStrategy::getStrategyName() const {
   return "Benevolent";
 }
 
-vector<Territory *> BenevolentPlayerStrategy::toDefend(Player *player) {
+vector<Territory *> BenevolentPlayerStrategy::toDefend(const Player *player) const {
 // Strategy is to deploy or advance armies on weakest country
 
     Territory* weakest = nullptr;
@@ -193,30 +213,30 @@ vector<Territory *> BenevolentPlayerStrategy::toDefend(Player *player) {
     return list;
 }
 
-vector<Territory *> BenevolentPlayerStrategy::toAttack(Player *player) {
+vector<Territory *> BenevolentPlayerStrategy::toAttack(const Player *player) const {
 // Strategy is to never advance to enemy territories
 // Therefore, we return an empty list.
     vector <Territory*> list;
     return list;
 }
 
-void BenevolentPlayerStrategy::issueOrder(Player *player) {}
+void BenevolentPlayerStrategy::issueOrder(const Player *player) {}
 
 // ============================================================
 //  NeutralPlayerStrategy
 // ============================================================
 //string NeutralPlayerStrategy::getStrategyName() const { return "Neutral"; }
 
-vector<Territory *> NeutralPlayerStrategy::toDefend(Player *player) {
+vector<Territory *> NeutralPlayerStrategy::toDefend(const Player *player) const {
   return player->toDefend();
 }
 
-vector<Territory *> NeutralPlayerStrategy::toAttack(Player *player) {
+vector<Territory *> NeutralPlayerStrategy::toAttack(const Player *player) const {
   // Neutral player never attacks
   return {};
 }
 
-void NeutralPlayerStrategy::issueOrder(Player *player) {
+void NeutralPlayerStrategy::issueOrder(const Player *player) {
   // Neutral player never issues orders
   cout << player->getName() << " (Neutral) does not issue any orders." << endl;
 }
@@ -229,13 +249,13 @@ void NeutralPlayerStrategy::issueOrder(Player *player) {
 
 string CheaterPlayerStrategy::getStrategyName() const { return "Cheater"; }
 
-vector<Territory *> CheaterPlayerStrategy::toDefend(Player *player) {
+vector<Territory *> CheaterPlayerStrategy::toDefend(const Player *player) const {
 // Does nothing. 
     vector <Territory*> list;
     return list;
 }
 
-vector<Territory*> CheaterPlayerStrategy::toAttack(Player* player) {
+vector<Territory*> CheaterPlayerStrategy::toAttack(const Player* player) const {
 // Will attack all territories adjacent to its own territories.
 
     vector<Territory*> list;
@@ -254,6 +274,6 @@ vector<Territory*> CheaterPlayerStrategy::toAttack(Player* player) {
     return list;
 }
 
-void CheaterPlayerStrategy::issueOrder(Player * player) {
+void CheaterPlayerStrategy::issueOrder(const Player * player) {
 
 }

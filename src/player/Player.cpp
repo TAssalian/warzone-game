@@ -8,6 +8,7 @@
 #include "../map/Map.h"
 #include "../orders/Orders.h"
 #include "Player.h"
+#include "PlayerStrategies.h"
 
 using std::cout, std::stringstream, std::string;
 
@@ -127,32 +128,12 @@ void Player::removeTerritory(Territory *territory) {
       territories->end());
 }
 
-// return territories of this player
-std::vector<Territory *> Player::toDefend() const { return *territories; }
+std::vector<Territory*> Player::toDefend() const {
+    return this->strategy->toDefend(this); 
+}
 
-// return a list of neighbor territories of oposing players
 std::vector<Territory *> Player::toAttack() const {
-  int territoriesN = mapLoader->getTerritoriesNum();
-  vector<bool> arr(territoriesN, false);
-  for (auto territory : getTerritories()) {
-    int territoryId_a = *territory->id;
-    for (auto territoryId_b :
-         *mapLoader->getTerritoryNeighborsIds(territoryId_a)) {
-      if (mapLoader->getTerritoryPlayerId(*territoryId_b) != *id) {
-        arr[*territoryId_b] = true;
-      }
-    }
-  }
-
-  vector<Territory *> list;
-
-  for (int i = 0; i < territoriesN; i++) {
-    if (arr[i]) {
-      list.push_back((*mapLoader->map->territories)[i]);
-    }
-  }
-
-  return list;
+    return this->strategy->toAttack(this);
 }
 
 void Player::issueOrder(string input) {
