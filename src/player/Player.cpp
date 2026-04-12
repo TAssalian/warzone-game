@@ -1,25 +1,26 @@
 #include <algorithm>
 #include <iostream>
-#include <string>
 #include <sstream>
+#include <string>
 
 #include "../cards/Cards.h"
+#include "../game-engine/GameEngine.h"
 #include "../map/Map.h"
 #include "../orders/Orders.h"
-#include "../game-engine/GameEngine.h"
 #include "Player.h"
+#include "PlayerStrategies.h"
 
 using std::cout, std::stringstream, std::string;
 
 int *Player::nextId = new int(0);
-MapLoader* Player::mapLoader = nullptr;
-GameEngine* Player::gameEngine = nullptr; 
+MapLoader *Player::mapLoader = nullptr;
+GameEngine *Player::gameEngine = nullptr;
 
 Player::Player(std::string name, Deck *deck)
     : id(new int((*nextId)++)), name(new std::string(name)),
       territories(new std::vector<Territory *>()), deck(deck),
       hand(new Hand(deck)), orders(new OrderList()), reinforcementPool(0),
-      conqueredThisTurn(false), negotiatedPlayers() {}
+      conqueredThisTurn(false), negotiatedPlayers(), strategy(nullptr) {}
 
 Player::Player(const Player &other)
     : id(new int(*other.id)), name(new std::string(*other.name)),
@@ -28,7 +29,7 @@ Player::Player(const Player &other)
       orders(new OrderList(*other.orders)),
       reinforcementPool(other.reinforcementPool),
       conqueredThisTurn(other.conqueredThisTurn),
-      negotiatedPlayers(other.negotiatedPlayers) {}
+      negotiatedPlayers(other.negotiatedPlayers), strategy(other.strategy) {}
 
 Player &Player::operator=(const Player &other) {
   if (this != &other) {
@@ -61,8 +62,8 @@ Player::~Player() {
 
 std::ostream &operator<<(std::ostream &os, const Player &p) {
   os << "Player ID: " << *p.id << ", Name: " << *p.name
-     << ", Territories owned: " << p.territories->size() 
-     << ", Reinforcement pool:" <<p.reinforcementPool
+     << ", Territories owned: " << p.territories->size()
+     << ", Reinforcement pool:" << p.reinforcementPool
      << ", Hand: " << *p.getHand();
   return os;
 }
@@ -79,7 +80,13 @@ const std::vector<Territory *> &Player::getTerritories() const {
 
 Hand *Player::getHand() const { return hand; }
 
-Deck* Player::getDeck() { return deck; }
+Deck *Player::getDeck() { return deck; }
+
+PlayerStrategy *Player::getStrategy() const { return strategy; }
+
+void Player::setStrategy(PlayerStrategy *strategy) {
+  this->strategy = strategy;
+}
 
 int Player::getReinforcementPool() const { return reinforcementPool; }
 
@@ -89,9 +96,7 @@ const std::vector<Player *> &Player::getNegotiatedPlayers() const {
   return negotiatedPlayers;
 }
 
-void Player::setId(int id) {
-  (*this->id) = id;
-}
+void Player::setId(int id) { (*this->id) = id; }
 
 void Player::setReinforcementPool(int pool) { reinforcementPool = pool; }
 
@@ -123,31 +128,12 @@ void Player::removeTerritory(Territory *territory) {
       territories->end());
 }
 
-// return territories of this player
-std::vector<Territory *> Player::toDefend() const { return *territories; }
+std::vector<Territory*> Player::toDefend() const {
+    return this->strategy->toDefend(this); 
+}
 
-// return a list of neighbor territories of oposing players
 std::vector<Territory *> Player::toAttack() const {
-  int territoriesN = mapLoader->getTerritoriesNum();
-  vector <bool> arr(territoriesN, false);
-  for (auto territory : getTerritories()) {
-    int territoryId_a = *territory->id;
-    for (auto territoryId_b : *mapLoader->getTerritoryNeighborsIds(territoryId_a)) {
-      if (mapLoader->getTerritoryPlayerId(*territoryId_b) != *id) {
-        arr[*territoryId_b] = true;
-      }
-    }
-  }
-
-  vector <Territory*> list;
-
-  for (int i = 0; i < territoriesN; i++) {
-    if (arr[i]) {
-      list.push_back((*mapLoader->map->territories)[i]);
-    }
-  }
-
-  return list;
+    return this->strategy->toAttack(this);
 }
 
 void Player::issueOrder(string input) {
@@ -158,8 +144,7 @@ void Player::issueOrder(string input) {
 
   auto defendTerritories = toDefend();
   auto attackTerritories = toAttack();
-  
-  
+
   string orderType;
   ss >> orderType;
 
@@ -169,7 +154,7 @@ void Player::issueOrder(string input) {
     if (ss >> armNum >> territoryId) {
 
       // check if territoryId is ok (is in defend list)
-      Territory* territory = nullptr;
+      Territory *territory = nullptr;
       for (auto x : defendTerritories) {
         if (*x->id == territoryId) {
           territory = x;
@@ -179,7 +164,8 @@ void Player::issueOrder(string input) {
       if (territory == nullptr) {
         cout << "Error: Territory id is not from the defend list\n";
       } else if (armNum > reinforcementPool || armNum <= 0) {
-        cout << "Error: Armies number should be between 1 and the reinforcement pool\n";
+        cout << "Error: Armies number should be between 1 and the "
+                "reinforcement pool\n";
       } else {
         reinforcementPool -= armNum;
         order = new DeployOrder(this, armNum, territory);
@@ -211,14 +197,15 @@ void Player::issueOrder(string input) {
           }
 
           if (targetTerritory == nullptr || sourceTerritory == nullptr) {
-            cout << "Error: Source and target territories should be from defend and defend/attack lists respectively\n";
+            cout << "Error: Source and target territories should be from "
+                    "defend and defend/attack lists respectively\n";
           } else {
-            order = new AdvanceOrder(this, armNum, sourceTerritory, targetTerritory);
+            order = new AdvanceOrder(this, armNum, sourceTerritory,
+                                     targetTerritory);
           }
         }
-      }
-      else if (orderType == "airlift") {
-        int armNum, sourceTerritoryId, targetTerritoryId; 
+      } else if (orderType == "airlift") {
+        int armNum, sourceTerritoryId, targetTerritoryId;
         if (ss >> armNum >> sourceTerritoryId >> targetTerritoryId) {
           Territory *sourceTerritory = nullptr, *targetTerritory = nullptr;
 
@@ -231,10 +218,10 @@ void Player::issueOrder(string input) {
             }
           }
 
-          order = new AirliftOrder(this, armNum, sourceTerritory, targetTerritory);
+          order =
+              new AirliftOrder(this, armNum, sourceTerritory, targetTerritory);
         }
-      }
-      else if (orderType == "bomb") {
+      } else if (orderType == "bomb") {
         int targetTerritoryId;
         if (ss >> targetTerritoryId) {
           Territory *targetTerritory = nullptr;
@@ -247,8 +234,7 @@ void Player::issueOrder(string input) {
 
           order = new BombOrder(this, targetTerritory);
         }
-      }
-      else if (orderType == "blockade") {
+      } else if (orderType == "blockade") {
         int targetTerritoryId;
         if (ss >> targetTerritoryId) {
           Territory *targetTerritory = nullptr;
@@ -261,15 +247,15 @@ void Player::issueOrder(string input) {
 
           order = new BlockadeOrder(this, targetTerritory);
         }
-      }
-      else if (orderType == "negotiate") {
+      } else if (orderType == "negotiate") {
         int opponentPlayerId;
         if (ss >> opponentPlayerId) {
-          Player* opponentPlayer = nullptr;
+          Player *opponentPlayer = nullptr;
 
           // find opponentPlayer between active players
           for (int i = 0; i < gameEngine->getPlayerCount(); i++) {
-            if (gameEngine->getPlayers()[i]->getTerritories().size() > 0 && gameEngine->getPlayers()[i]->getId() == opponentPlayerId) {
+            if (gameEngine->getPlayers()[i]->getTerritories().size() > 0 &&
+                gameEngine->getPlayers()[i]->getId() == opponentPlayerId) {
               opponentPlayer = gameEngine->getPlayers()[i];
             }
           }
@@ -281,7 +267,6 @@ void Player::issueOrder(string input) {
       cout << "Error: You have to first deploy your reinforcement pool\n";
     }
   }
-  
 
   if (order == nullptr) {
     cout << "Error: There is a problem with the order issued\n\n";

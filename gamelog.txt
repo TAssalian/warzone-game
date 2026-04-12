@@ -1,0 +1,13 @@
+
+Tournament mode:
+M: apple, bigeurope, artic, brasil
+P: Neutral, Aggressive, Aggressive, Aggressive
+G: 4
+D: 40
+
+Results:
+                        Game 1         Game 2         Game 3         Game 4
+          apple   Aggressive 1        Neutral           Draw   Aggressive 2
+      bigeurope           Draw           Draw           Draw           Draw
+          artic           Draw           Draw           Draw           Draw
+         brasil           Draw           Draw           Draw           Draw

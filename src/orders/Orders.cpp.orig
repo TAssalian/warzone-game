@@ -1,12 +1,11 @@
 #include "Orders.h"
-#include "../Observer/LoggingObserver.h"
 #include "../cards/Cards.h"
 #include "../player/Player.h"
-#include "../player/PlayerStrategies.h"
+#include "../Observer/LoggingObserver.h"
 #include <algorithm>
 using namespace std;
 
-GameEngine *Order::gameEngine = nullptr;
+GameEngine* Order::gameEngine = nullptr;
 
 //-------------ORDER IMPLEMENTATION--------------//
 // Default Constructor
@@ -130,7 +129,8 @@ bool DeployOrder::execute() {
   if (validate()) {
 
     // Add armies to the target territory
-    targetTerritory->setArmiesNum(targetTerritory->getArmiesNum() + numArmies);
+    targetTerritory->setArmiesNum(targetTerritory->getArmiesNum() +
+                                  numArmies);
     // Deduct from reinforcement pool
     // issuer->setReinforcementPool(issuer->getReinforcementPool() - numArmies);
     setIsExecuted(true);
@@ -152,7 +152,7 @@ AdvanceOrder::AdvanceOrder()
 AdvanceOrder::AdvanceOrder(Player *issuer, int numArmies, Territory *source,
                            Territory *target, bool cheat)
     : Order("Advance", issuer), numArmies(numArmies), source(source),
-      target(target), cheat(cheat) {}
+      target(target) {}
 
 // Getters
 int AdvanceOrder::getNumArmies() const { return numArmies; }
@@ -210,12 +210,10 @@ bool AdvanceOrder::validate() {
     }
   }
 
-  // Check if the source territory has at least numArmies armies and numArmies
-  // is higher than 0
+  //Check if the source territory has at least numArmies armies and numArmies is higher than 0
   if (numArmies > source->getArmiesNum() || numArmies < 0) {
     setIsExecuted(false);
-    setEffect("Advance order validation failed. Issued armiesNum should be "
-              "between 1 to sourceTerritory armiesNum");
+    setEffect("Advance order validation failed. Issued armiesNum should be between 1 to sourceTerritory armiesNum");
     return false;
   }
 
@@ -229,38 +227,28 @@ bool AdvanceOrder::validate() {
   setIsExecuted(false);
   setEffect("Advance order validation failed. Target territory is not adjacent "
             "to source territory.");
-  cout << "\nDEBUG: Target ID=" << *target->id << ", Source neighbors: ";
-  for (int *n : *source->getNeighborsIds())
-    cout << *n << " ";
-  cout << "\n";
 
   return false;
 }
 
 bool AdvanceOrder::execute() {
-  Player *neutralPlayer = gameEngine->getPlayers()[*target->playerId];
-  if (neutralPlayer->getStrategy()->getStrategyName() == "Neutral") {
-    neutralPlayer->setStrategy(new AggressivePlayerStrategy());
-  }
 
-  if (cheat) {
-    // Attacker wins — capture territory
-    target->setArmiesNum(numArmies);
+    if (cheat) {
+        // Attacker wins — capture territory
+        target->setArmiesNum(numArmies);
 
-    // if target player is not neutral, remove the target territory from the
-    // players territories list
-    if (*target->playerId != -1) {
-      gameEngine->getPlayers()[*target->playerId]->removeTerritory(target);
+        // if target player is not neutral, remove the target territory from the players territories list
+        if (*target->playerId != -1) {
+            gameEngine->getPlayers()[*target->playerId]->removeTerritory(target);
+        }
+
+        *target->playerId = *source->playerId; // transfer ownership
+        issuer->addTerritory(target);
+        issuer->setConqueredThisTurn(true);
+        setIsExecuted(true);
+        setEffect("Attacked " + *(target->getName()) + " and conquered it.");
+        notify(this); // Notify observers of the state change
     }
-
-    *target->playerId = *source->playerId; // transfer ownership
-    issuer->addTerritory(target);
-    issuer->setConqueredThisTurn(true);
-    setIsExecuted(true);
-    setEffect("Attacked " + *(target->getName()) + " and conquered it.");
-    notify(this); // Notify observers of the state change
-    return true;
-  }
 
   if (validate()) {
     // If the target is owned by the same player, just move armies
@@ -298,13 +286,13 @@ bool AdvanceOrder::execute() {
       } else {
         // Attacker wins — capture territory
         target->setArmiesNum(attackingArmies);
-
-        // if target player is not neutral, remove the target territory from the
-        // players territories list
+        
+        // if target player is not neutral, remove the target territory from the players territories list
         if (*target->playerId != -1) {
           gameEngine->getPlayers()[*target->playerId]->removeTerritory(target);
-        }
-
+        }  
+        
+        
         *target->playerId = *source->playerId; // transfer ownership
         issuer->addTerritory(target);
         issuer->setConqueredThisTurn(true);
@@ -374,7 +362,7 @@ bool BombOrder::validate() {
       }
     }
   }
-  // Check if territories are adjacent
+  //Check if territories are adjacent
   if (!isAdjacent) {
     setIsExecuted(false);
     setEffect("Bomb order validation failed. Target territory is not adjacent "
@@ -401,11 +389,6 @@ bool BombOrder::validate() {
 }
 
 bool BombOrder::execute() {
-  Player *neutralPlayer = gameEngine->getPlayers()[*target->playerId];
-  if (neutralPlayer->getStrategy()->getStrategyName() == "Neutral") {
-    neutralPlayer->setStrategy(new AggressivePlayerStrategy());
-  }
-
   if (validate()) {
     // Halve the number of armies in target territory
     *(target->armiesNum) /= 2;
@@ -567,7 +550,7 @@ bool AirliftOrder::validate() {
     return false;
   }
 
-  // Check if the player has an Airlift card
+  //Check if the player has an Airlift card
   bool hasCard = false;
   for (Card *card : *issuer->getHand()->cards) {
     if (card->type == CardType::Airlift) {
@@ -581,7 +564,7 @@ bool AirliftOrder::validate() {
               "card.");
     return false;
   }
-
+  
   return true;
 }
 
@@ -690,11 +673,12 @@ bool NegotiateOrder::execute() {
     setEffect("Negotiated peace between " + issuer->getName() + " and " +
               target->getName() + ". Neither can attack the other this turn.");
     notify(this); // Notify observers of the state change
-
+	
     return true;
   }
   return false;
 }
+
 
 //-------------ORDERLIST IMPLEMENTATION--------------//
 // Default Constructor
@@ -738,20 +722,19 @@ vector<Order *> *OrderList::getOrders() const { return orders; }
 
 // Methods
 
-void OrderList::addOrder(Order *order) {
-  orders->push_back(order);
-  notify(this); // Notify observers that a new order has been added
+void OrderList::addOrder(Order *order) 
+{ 
+    orders->push_back(order);
+	notify(this); // Notify observers that a new order has been added
 }
 
 std::string Order::stringToLog() const {
-  return "Order::execute(): [" + orderType + "] | Effect: [" + orderEffect +
-         "]";
+    return "Order::execute(): [" + orderType + "] | Effect: [" + orderEffect + "]";
 }
 
 std::string OrderList::stringToLog() const {
-  if (orders->empty())
-    return "OrderList: No orders added yet.";
-  return "OrderList::addOrder(): [" + orders->back()->getOrderType() + "]";
+    if (orders->empty()) return "OrderList: No orders added yet.";
+    return "OrderList::addOrder(): [" + orders->back()->getOrderType() + "]";
 }
 
 void OrderList::move(int currentIndex, int newIndex) {
@@ -783,3 +766,5 @@ std::ostream &operator<<(std::ostream &os, const OrderList &orderList) {
     return os;
   }
 }
+
+

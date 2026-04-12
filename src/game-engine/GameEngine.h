@@ -1,5 +1,6 @@
 #pragma once
 #include "../Observer/LoggingObserver.h"
+#include "CommandProcessing.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -9,6 +10,8 @@
 
 class Command;
 class CommandProcessor;
+struct TournamentParams;
+struct TournamentResults;
 
 using std::string, std::ostream;
 
@@ -90,6 +93,13 @@ public:
   void reinforcementPhase();
   void issueOrdersPhase(CommandProcessor* processor);
   void executeOrdersPhase();
+
+  // Tournament mode methods
+  TournamentResults runTournament(const TournamentParams &params);
+  std::string runSingleGame(const std::string &mapFile, const std::vector<std::string> &strategies, int maxTurns);
+  void logTournamentResults(const TournamentResults &results);
+  void printTournamentResults(const TournamentResults &results);
+  void resetGameState();
 
   // details of the game (such as players, territories, ...)
   void printGameStats();

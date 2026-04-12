@@ -69,11 +69,11 @@ private:
   int numArmies;
   Territory *source;
   Territory *target;
-
+  bool cheat;
 public:
   AdvanceOrder();
-  AdvanceOrder(Player *issuer, int numArmies, Territory *source,
-               Territory *target);
+  AdvanceOrder(Player* issuer, int numArmies, Territory* source,
+      Territory* target, bool cheat = false);
   AdvanceOrder(const AdvanceOrder &other) = default;
   AdvanceOrder &operator=(const AdvanceOrder &other) = default;
   ~AdvanceOrder() override = default;
