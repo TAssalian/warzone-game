@@ -25,7 +25,7 @@ std::ostream &operator<<(std::ostream &os, const PlayerStrategy &ps) {
 // ============================================================
 //  HumanPlayerStrategy
 // ============================================================
-//string HumanPlayerStrategy::getStrategyName() const { return "Human"; }
+string HumanPlayerStrategy::getStrategyName() const { return "Human"; }
 
 vector<Territory *> HumanPlayerStrategy::toDefend(const Player *player) const {
     return player->getTerritories();
@@ -55,7 +55,8 @@ vector<Territory *> HumanPlayerStrategy::toAttack(const Player *player) const {
     return list;
 }
 
-void HumanPlayerStrategy::issueOrder(const Player *player) {
+void HumanPlayerStrategy::issueOrder(Player *player) {
+
   cout << "\n--- " << player->getName() << "'s turn (Human) ---" << endl;
   cout << "Reinforcement pool: " << player->getReinforcementPool() << endl;
 
@@ -115,15 +116,15 @@ vector<Territory *> AggressivePlayerStrategy::toAttack(const Player *player) con
   for (Territory *t : defendTerritories) {
     for (int *neighborId : *t->getNeighborsIds()) {
       Territory *neighbor = (*player->mapLoader->map->territories)[*neighborId - 1];
-      //if (neighbor->getPlayerId() != player->getId()) {
-      //  attackTerritories.push_back(neighbor);
-      //}
+      if (neighbor->getPlayerId() != player->getId()) {
+        attackTerritories.push_back(neighbor);
+      }
     }
   }
   return attackTerritories;
 }
 
-void AggressivePlayerStrategy::issueOrder(const Player *player) {
+void AggressivePlayerStrategy::issueOrder(Player *player) {
   vector<Territory *> defendTerritories = toDefend(player);
   vector<Territory *> attackTerritories = toAttack(player);
 
@@ -220,12 +221,25 @@ vector<Territory *> BenevolentPlayerStrategy::toAttack(const Player *player) con
     return list;
 }
 
-void BenevolentPlayerStrategy::issueOrder(const Player *player) {}
+void BenevolentPlayerStrategy::issueOrder(Player *player) {
+// Note that there is no attacks needed to be made with this strategy.
+
+    vector<Territory*> defendTerritories = toDefend(player);
+
+    if (defendTerritories.empty())
+        return;
+
+    Territory* weakestTerritory = defendTerritories[0];
+
+    // Deploy order: deploy to strongest territory
+    player->getOrders()->addOrder(new DeployOrder(
+        player, player->getReinforcementPool(), weakestTerritory));
+}
 
 // ============================================================
 //  NeutralPlayerStrategy
 // ============================================================
-//string NeutralPlayerStrategy::getStrategyName() const { return "Neutral"; }
+string NeutralPlayerStrategy::getStrategyName() const { return "Neutral"; }
 
 vector<Territory *> NeutralPlayerStrategy::toDefend(const Player *player) const {
   return player->toDefend();
@@ -236,7 +250,7 @@ vector<Territory *> NeutralPlayerStrategy::toAttack(const Player *player) const 
   return {};
 }
 
-void NeutralPlayerStrategy::issueOrder(const Player *player) {
+void NeutralPlayerStrategy::issueOrder(Player *player) {
   // Neutral player never issues orders
   cout << player->getName() << " (Neutral) does not issue any orders." << endl;
 }
@@ -274,6 +288,62 @@ vector<Territory*> CheaterPlayerStrategy::toAttack(const Player* player) const {
     return list;
 }
 
-void CheaterPlayerStrategy::issueOrder(const Player * player) {
+void CheaterPlayerStrategy::issueOrder(Player * player) {
+// Note that no defending happens with this strategy.
 
+    vector<Territory*> attackTerritories = toAttack(player);
+
+    if (attackTerritories.empty())
+        return;
+
+    Territory* startingTerritory = attackTerritories[0];
+
+  // Advance order: attack from strongest territory to every adjacent enemy
+  // territory
+    //vector<Territory*> enemyNeighbors;
+    //for (int* neighborId : *startingTerritory->getNeighborsIds()) {
+
+    //    Territory* neighbor = nullptr;
+    //    for (Territory* t : *player->mapLoader->map->territories) {
+    //        if (*t->id == *neighborId) {
+    //            neighbor = t;
+    //            break;
+    //        }
+    //    }
+    //    if (neighbor && neighbor->getPlayerId() != player->getId()) {
+    //      enemyNeighbors.push_back(neighbor);
+    //    }
+    //}
+
+    //int totalArmies =
+    //    startingTerritory->getArmiesNum() + player->getReinforcementPool();
+
+    //if (totalArmies == 0) return;
+
+    //if (enemyNeighbors.empty()) {
+    //    vector<Territory*> friendlyNeighbors;
+    //    for (int* neighborId : *startingTerritory->getNeighborsIds()) {
+    //        Territory* neighbor = (*player->mapLoader->map->territories)[*neighborId - 1];
+    //        if (neighbor->getPlayerId() == player->getId()) {
+    //          friendlyNeighbors.push_back(neighbor);
+    //        }
+    //    }
+    //    if (!friendlyNeighbors.empty()) {
+    //        player->getOrders()->addOrder(new AdvanceOrder(
+    //            player, totalArmies, strongestTerritory, friendlyNeighbors[0]));
+    //    }
+    //    return;
+    //}
+    //int armiesPerTarget = totalArmies / enemyNeighbors.size();
+    //int remainder = totalArmies % enemyNeighbors.size();
+
+    //for (size_t i = 0; i < enemyNeighbors.size(); i++) {
+    //    int armies = armiesPerTarget + (i == 0 ? remainder : 0);
+    //    if (armies > 0) {
+    //        player->getOrders()->addOrder(new AdvanceOrder(
+    //            player, armies, strongestTerritory, enemyNeighbors[i]));
+    //    }
+    //}
+
+    // do smth
 }

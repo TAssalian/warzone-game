@@ -150,7 +150,7 @@ AdvanceOrder::AdvanceOrder()
 
 // Parameterized Constructor
 AdvanceOrder::AdvanceOrder(Player *issuer, int numArmies, Territory *source,
-                           Territory *target)
+                           Territory *target, bool cheat)
     : Order("Advance", issuer), numArmies(numArmies), source(source),
       target(target) {}
 
@@ -232,6 +232,24 @@ bool AdvanceOrder::validate() {
 }
 
 bool AdvanceOrder::execute() {
+
+    if (cheat) {
+        // Attacker wins — capture territory
+        target->setArmiesNum(numArmies);
+
+        // if target player is not neutral, remove the target territory from the players territories list
+        if (*target->playerId != -1) {
+            gameEngine->getPlayers()[*target->playerId]->removeTerritory(target);
+        }
+
+        *target->playerId = *source->playerId; // transfer ownership
+        issuer->addTerritory(target);
+        issuer->setConqueredThisTurn(true);
+        setIsExecuted(true);
+        setEffect("Attacked " + *(target->getName()) + " and conquered it.");
+        notify(this); // Notify observers of the state change
+    }
+
   if (validate()) {
     // If the target is owned by the same player, just move armies
     if (*(target->playerId) == *(source->playerId)) {

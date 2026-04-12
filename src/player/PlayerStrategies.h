@@ -12,7 +12,7 @@ class PlayerStrategy {
 public:
   virtual ~PlayerStrategy() = default;
 
-  virtual void issueOrder(const Player *player) = 0;
+  virtual void issueOrder(Player *player) = 0;
   virtual std::vector<Territory *> toAttack(const Player *player) const = 0;
   virtual std::vector<Territory *> toDefend(const Player *player) const = 0;
 
@@ -24,7 +24,7 @@ public:
 // Human player: requires user interactions to make decisions
 class HumanPlayerStrategy : public PlayerStrategy {
 public:
-  void issueOrder(const Player *player) override;
+  void issueOrder(Player *player) override;
   std::vector<Territory *> toAttack(const Player *player) const override;
   std::vector<Territory *> toDefend(const Player *player) const override;
   std::string getStrategyName() const override;
@@ -35,7 +35,7 @@ public:
 // then always advances to enemy territories until it cannot do so anymore
 class AggressivePlayerStrategy : public PlayerStrategy {
 public:
-  void issueOrder(const Player *player) override;
+  void issueOrder(Player *player) override;
   std::vector<Territory *> toAttack(const Player *player) const override;
   std::vector<Territory *> toDefend(const Player *player) const override;
   std::string getStrategyName() const override;
@@ -46,7 +46,7 @@ public:
 // never advances to enemy territories
 class BenevolentPlayerStrategy : public PlayerStrategy {
 public:
-  void issueOrder(const Player *player) override;
+  void issueOrder(Player *player) override;
   std::vector<Territory *> toAttack(const Player *player) const override;
   std::vector<Territory *> toDefend(const Player *player) const override;
   std::string getStrategyName() const override;
@@ -56,7 +56,7 @@ public:
 // If attacked, becomes an Aggressive player
 class NeutralPlayerStrategy : public PlayerStrategy {
 public:
-  void issueOrder(const Player *player) override;
+  void issueOrder(Player *player) override;
   std::vector<Territory *> toAttack(const Player *player) const override;
   std::vector<Territory *> toDefend(const Player *player) const override;
   std::string getStrategyName() const override;
@@ -65,7 +65,7 @@ public:
 // Cheater player: automatically conquers all adjacent enemy territories (once per turn)
 class CheaterPlayerStrategy : public PlayerStrategy {
 public:
-  void issueOrder(const Player *player) override;
+  void issueOrder(Player *player) override;
   std::vector<Territory *> toAttack(const Player *player) const override;
   std::vector<Territory *> toDefend(const Player *player) const override;
   std::string getStrategyName() const override;
