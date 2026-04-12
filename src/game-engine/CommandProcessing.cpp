@@ -3,8 +3,11 @@
 
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <cctype>
 
 using std::cout;
 using std::endl;
@@ -125,12 +128,20 @@ bool CommandProcessor::validate(Command *cmd) {
   string text = cmd->getCommand();
   string stateName = engine->getCurrentStateName();
 
-  if (engine->validateCommand(text)) { //
-    return true;
-  } else {
+  if (!engine->validateCommand(text)) {
     cmd->saveEffect("ERROR: \"" + text + "\" is not a valid command in state " + stateName + ".");
     return false;
   }
+
+  std::istringstream iss(text);
+  string commandName;
+  iss >> commandName;
+  std::transform(commandName.begin(), commandName.end(), commandName.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+
+
+
+  return true;
 }
 
 ostream &operator<<(ostream &os, const CommandProcessor &cp) {
@@ -232,4 +243,64 @@ Command *FileCommandProcessorAdapter::readCommand() {
 ostream &operator<<(ostream &os, const FileCommandProcessorAdapter &fcpa) {
   os << "FileCommandProcessorAdapter [" << *fcpa.flr << "]";
   return os;
+}
+
+
+bool CommandProcessor::parseTournamentCommand(const string &commandText, TournamentParams &params, string &errorMsg) {
+  std::istringstream iss(commandText);
+  string token;
+  
+  iss >> token; // Skip "tournament"
+  
+  while (iss >> token) {
+    if (token == "-M" || token == "-m") {
+      string mapList;
+      iss >> mapList;
+      // Split by comma
+      std::istringstream mapStream(mapList);
+      string map;
+      while (std::getline(mapStream, map, ',')) {
+        params.mapFiles.push_back(map);
+      }
+    }
+    else if (token == "-P" || token == "-p") {
+      string strategyList;
+      iss >> strategyList;
+      // Split by comma
+      std::istringstream stratStream(strategyList);
+      string strat;
+      while (std::getline(stratStream, strat, ',')) {
+        params.playerStrategies.push_back(strat);
+      }
+    }
+    else if (token == "-G" || token == "-g") {
+      iss >> params.numberOfGames;
+    }
+    else if (token == "-D" || token == "-d") {
+      iss >> params.maxTurns;
+    }
+  }
+  
+  // Validate parameter ranges
+  size_t mapCount = params.mapFiles.size();
+  size_t stratCount = params.playerStrategies.size();
+  
+  if (mapCount < 1 || mapCount > 5) {
+    errorMsg = "M must be 1 to 5 maps";
+    return false;
+  }
+  if (stratCount < 2 || stratCount > 4) {
+    errorMsg = "P must be 2 to 4 strategies";
+    return false;
+  }
+  if (params.numberOfGames < 1 || params.numberOfGames > 5) {
+    errorMsg = "G must be 1 to 5";
+    return false;
+  }
+  if (params.maxTurns < 10 || params.maxTurns > 50) {
+    errorMsg = "D must be 10 to 50";
+    return false;
+  }
+  
+  return true;
 }

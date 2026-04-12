@@ -9,6 +9,23 @@
 using std::vector, std::string, std::ifstream, std::stringstream, std::getline,
     std::stack;
 
+namespace {
+void stripTrailingCarriageReturn(string &line) {
+  if (!line.empty() && line.back() == '\r') {
+    line.pop_back();
+  }
+}
+
+bool hasNeighbor(const Territory *territory, int neighborId) {
+  for (const int *existingNeighborId : *territory->neighborsIds) {
+    if (*existingNeighborId == neighborId) {
+      return true;
+    }
+  }
+  return false;
+}
+}
+
 Map::Map(const Map &other) {
   continents = new vector<Continent *>();
   for (auto continent : *other.continents) {
@@ -275,6 +292,8 @@ MapLoader::MapLoader(string filename) {
 
   // checking file format
   while (getline(file, line)) {
+    stripTrailingCarriageReturn(line);
+
     // skip empty lines or comment lines starting with ';'
     if (line.empty() || line[0] == ';')
       continue;
@@ -365,6 +384,8 @@ MapLoader::MapLoader(string filename) {
   }
 
   while (getline(file, line)) {
+    stripTrailingCarriageReturn(line);
+
     // skip empty lines or comment lines starting with ';'
     if (line.empty() || line[0] == ';')
       continue;
@@ -447,13 +468,24 @@ void Map::validate() {
 
   for (auto territory : *territories) {
     for (auto neighborId : *territory->neighborsIds) {
-      if (*neighborId >= 0 && *neighborId < territoriesNum) {
-        int territoryId = *territory->id;
-        delete (*(*borders)[territoryId])[*neighborId];
-        (*(*borders)[territoryId])[*neighborId] = new bool(true);
-      } else {
+      const int territoryId = *territory->id;
+      const int adjacentTerritoryId = *neighborId;
+
+      if (adjacentTerritoryId < 0 || adjacentTerritoryId >= territoriesNum ||
+          adjacentTerritoryId == territoryId) {
         validateErr = new Err(Err::InconsistentBorders);
         return;
+      }
+
+      delete (*(*borders)[territoryId])[adjacentTerritoryId];
+      (*(*borders)[territoryId])[adjacentTerritoryId] = new bool(true);
+
+      delete (*(*borders)[adjacentTerritoryId])[territoryId];
+      (*(*borders)[adjacentTerritoryId])[territoryId] = new bool(true);
+
+      Territory *adjacentTerritory = (*territories)[adjacentTerritoryId];
+      if (!hasNeighbor(adjacentTerritory, territoryId)) {
+        adjacentTerritory->neighborsIds->push_back(new int(territoryId));
       }
     }
   }
@@ -462,13 +494,6 @@ void Map::validate() {
     if (*(*(*borders)[i])[i]) {
       validateErr = new Err(Err::InconsistentBorders);
       return;
-    }
-
-    for (int j = 0; j < territoriesNum; j++) {
-      if (*(*(*borders)[i])[j] != *(*(*borders)[j])[i]) {
-        validateErr = new Err(Err::InconsistentBorders);
-        return;
-      }
     }
   }
 

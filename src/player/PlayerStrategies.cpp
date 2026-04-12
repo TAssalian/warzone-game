@@ -129,26 +129,29 @@ AggressivePlayerStrategy::toAttack(const Player *player) const {
 
 void AggressivePlayerStrategy::issueOrder(Player *player) {
   vector<Territory *> defendTerritories = toDefend(player);
-  vector<Territory *> attackTerritories = toAttack(player);
 
   if (defendTerritories.empty())
     return;
-  if (attackTerritories.empty())
-    return;
 
   Territory *strongestTerritory = defendTerritories[0];
+  vector<Territory *> attackTerritories = toAttack(player);
+
+  if (attackTerritories.empty())
+    return;
 
   // Deploy order: deploy to strongest territory
   player->getOrders()->addOrder(new DeployOrder(
       player, player->getReinforcementPool(), strongestTerritory));
-  // Advance order: attack from strongest territory to every adjacent enemy
-  int numOfAttackTerritories = attackTerritories.size();
-  int armiesToAdvance =
-      strongestTerritory->getArmiesNum() / numOfAttackTerritories;
 
-  for (Territory *territory : attackTerritories) {
+  // Attack with all armies
+  int totalArmies = strongestTerritory->getArmiesNum() + player->getReinforcementPool();
+  int numTargets = attackTerritories.size();
+  int armiesToAdvance = totalArmies / numTargets;
+  if (armiesToAdvance < 1) armiesToAdvance = 1;
+
+  for (Territory *target : attackTerritories) {
     player->getOrders()->addOrder(new AdvanceOrder(
-        player, armiesToAdvance, strongestTerritory, territory));
+        player, armiesToAdvance, strongestTerritory, target));
   }
 }
 
@@ -224,7 +227,6 @@ NeutralPlayerStrategy::toAttack(const Player *player) const {
 
 void NeutralPlayerStrategy::issueOrder(Player *player) {
   // Neutral player never issues orders
-  cout << player->getName() << " (Neutral) does not issue any orders." << endl;
 }
 
 // ============================================================

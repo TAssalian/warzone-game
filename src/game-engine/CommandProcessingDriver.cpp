@@ -35,7 +35,8 @@ int run_command_processing_driver(int argc, char *argv[]) {
   if (mode == "-console") {
     cout << "\n[Mode] Console — type commands manually." << endl;
     cout << "Commands:\n"
-         << "  loadmap <mapfile>, validatemap, addplayer <playername>,\n"
+         << "  loadmap <mapfile>, tournament -M <maps> -P <strategies> -G <games> -D <turns>,\n"
+         << "  validatemap, addplayer <playername>,\n"
          << "  gamestart, issueorders, issueorder, endissueorders,\n"
          << "  execorder, win, replay, quit\n"
          << endl;

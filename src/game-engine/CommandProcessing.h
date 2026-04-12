@@ -7,6 +7,28 @@
 
 class GameEngine;
 
+// Structure to hold tournament parameters after parsing the tournament command
+struct TournamentParams {
+  std::vector<std::string> mapFiles;       // M: 1 to 5 map files
+  std::vector<std::string> playerStrategies; // P: 2 to 4 player strategies
+  int numberOfGames;                        // G: 1 to 5 games per map
+  int maxTurns;                             // D: 10 to 50 max turns per game
+  
+  TournamentParams() : numberOfGames(0), maxTurns(0) {}
+};
+
+// Structure to store tournament results
+struct TournamentResults {
+  std::vector<std::string> mapFiles;
+  std::vector<std::string> playerStrategies;
+  int numberOfGames;
+  int maxTurns;
+  // Results table: results[mapIndex][gameIndex] = winner strategy name or "Draw"
+  std::vector<std::vector<std::string>> results;
+  
+  TournamentResults() : numberOfGames(0), maxTurns(0) {}
+};
+
 class Command: public ILoggable, public Subject {
 private:
   std::string *commandText; // The command string entered by the user
@@ -50,6 +72,8 @@ public:
   // If invalid, saves an error message as the command's effect.
   bool validate(Command *cmd);
 
+  // Tournament command parsing
+  bool parseTournamentCommand(const std::string &commandText, TournamentParams &params, std::string &errorMsg);
 
   std::string stringToLog() const override;
 
