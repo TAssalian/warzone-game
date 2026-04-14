@@ -172,7 +172,7 @@ BenevolentPlayerStrategy::toDefend(const Player *player) const {
   Territory *weakest = player->getTerritories()[0];
   int lowestArmyCount = *player->getTerritories()[0]->armiesNum;
 
-  // Determine weakest territory
+  // Determine weakest territory as the one with the lowest army count
   for (Territory *territory : player->getTerritories()) {
     if (territory->getArmiesNum() < lowestArmyCount) {
       lowestArmyCount = territory->getArmiesNum();
@@ -204,7 +204,7 @@ void BenevolentPlayerStrategy::issueOrder(Player *player) {
 
   Territory *weakestTerritory = defendTerritories[0];
 
-  // Deploy order: deploy to strongest territory
+  // Deploy order: deploy to weakest territory
   player->getOrders()->addOrder(new DeployOrder(
       player, player->getReinforcementPool(), weakestTerritory));
 }
@@ -239,7 +239,8 @@ string CheaterPlayerStrategy::getStrategyName() const { return "Cheater"; }
 
 vector<Territory *>
 CheaterPlayerStrategy::toDefend(const Player *player) const {
-  // Does nothing.
+ // Gets all the player territories that are adjacent to the enemy territories
+// Used for the attack in issueOrder()
   vector<Territory *> list;
 
   for (Territory *playerTerritory : player->getTerritories()) {
